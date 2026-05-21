@@ -16,11 +16,8 @@ Page({
       segments: 0,
       cachedAudio: 0
     },
-    ttsSpeed: 90,
-    ttsSpeedLabel: '0.9x',
-    voiceIndex: 0,
-    selectedVoice: '默认',
-    voices: ['默认', '英文', '中文']
+    ttsSpeed: 100,
+    ttsSpeedLabel: '1.0x'
   },
 
   onShow() {
@@ -37,11 +34,10 @@ Page({
 
   loadPreferences() {
     const prefs = wx.getStorageSync('study_preferences') || {}
+    const speed = prefs.ttsSpeed || 100
     this.setData({
-      ttsSpeed: prefs.ttsSpeed || 90,
-      ttsSpeedLabel: `${((prefs.ttsSpeed || 90) / 100).toFixed(1)}x`,
-      voiceIndex: prefs.voiceIndex || 0,
-      selectedVoice: this.data.voices[prefs.voiceIndex || 0] || '默认'
+      ttsSpeed: speed,
+      ttsSpeedLabel: `${(speed / 100).toFixed(1)}x`
     })
   },
 
@@ -60,15 +56,6 @@ Page({
       ttsSpeedLabel: `${(value / 100).toFixed(1)}x`
     })
     this.savePreferences({ ttsSpeed: value })
-  },
-
-  onVoiceChange(e) {
-    const voiceIndex = Number(e.detail.value)
-    this.setData({
-      voiceIndex,
-      selectedVoice: this.data.voices[voiceIndex] || 'Default'
-    })
-    this.savePreferences({ voiceIndex })
   },
 
   onOpenVocabulary() {

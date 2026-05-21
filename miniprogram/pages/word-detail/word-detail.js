@@ -7,7 +7,13 @@ Page({
   data: {
     word: null,
     loading: true,
-    isRegeneratingAudio: false,
+    generatingWordAudio: false,
+    isPlayingWord: false,
+    isPlayingExample: false,
+    playingExampleIndex: -1,
+    generatingExampleAudioIndex: -1,
+    translatingExamples: {},
+    exampleTranslationsOpen: {},
     expandedSections: {
       definition: true,
       examples: false,
@@ -22,6 +28,7 @@ Page({
   },
 
   onLoad(options) {
+    this.bindAudioEvents()
     const id = options.id
     if (id) {
       this.loadWord(id)
@@ -32,6 +39,27 @@ Page({
 
   onUnload() {
     audioManager.stopAudio()
+    audioManager.onEnded(null)
+    audioManager.onError(null)
+  },
+
+  bindAudioEvents() {
+    audioManager.onEnded(() => {
+      this.setData({
+        isPlayingWord: false,
+        isPlayingExample: false,
+        playingExampleIndex: -1
+      })
+    })
+
+    audioManager.onError(() => {
+      this.setData({
+        isPlayingWord: false,
+        isPlayingExample: false,
+        playingExampleIndex: -1
+      })
+      wx.showToast({ title: '播放失败', icon: 'none' })
+    })
   },
 
   loadWord(id) {
@@ -43,13 +71,43 @@ Page({
       const reviewProgress = Math.round((word.reviewLevel / MAX_REVIEW_LEVEL) * 100)
 
       this.setData({
-        word,
+        word: this.decorateWord(word),
         loading: false,
         accuracy,
         reviewProgress
       })
     } else {
       this.setData({ word: null, loading: false })
+    }
+  },
+
+  refreshWord() {
+    if (!this.data.word) return
+    const word = storage.getWordById(this.data.word.id)
+    if (!word) return
+    this.setData({ word: this.decorateWord(word) })
+  },
+
+  decorateWord(word) {
+    if (!word) return null
+
+    const content = word.content || {}
+    const audio = word.audio || {}
+    const translations = Array.isArray(content.exampleTranslations) ? content.exampleTranslations : []
+    const exampleAudios = Array.isArray(audio.exampleAudios) ? audio.exampleAudios : []
+    const translationOpen = this.data.exampleTranslationsOpen || {}
+    const translating = this.data.translatingExamples || {}
+
+    return {
+      ...word,
+      exampleItems: (content.examples || []).map((text, index) => ({
+        index,
+        text,
+        translation: translations[index] || '',
+        hasAudio: !!(exampleAudios[index] || (index === 0 && audio.fullAudio)),
+        translationOpen: !!translationOpen[index],
+        isTranslating: !!translating[index]
+      }))
     }
   },
 
@@ -62,18 +120,178 @@ Page({
     })
   },
 
+  async ensureWordAudio() {
+    const word = storage.getWordById(this.data.word.id)
+    if (!word) return ''
+
+    const existing = word.audio && word.audio.wordAudio
+    if (existing) return existing
+
+    this.setData({ generatingWordAudio: true })
+
+    try {
+      const audioFileID = await cloud.synthesizeSpeech(word.word, 'word')
+      const latest = storage.getWordById(word.id)
+      const audio = {
+        wordAudio: '',
+        clozeAudio: '',
+        fullAudio: '',
+        ...((latest && latest.audio) || {})
+      }
+      audio.wordAudio = audioFileID
+
+      storage.updateWord(word.id, { audio })
+      this.refreshWord()
+      return audioFileID
+    } catch (err) {
+      console.error('单词音频生成失败', err)
+      wx.showToast({ title: '单词音频生成失败', icon: 'none' })
+      return ''
+    } finally {
+      this.setData({ generatingWordAudio: false })
+    }
+  },
+
   /** 播放单词音频 */
-  onPlayWordAudio() {
+  async onPlayWordAudio() {
     const word = this.data.word
-    if (!word || !word.audio || !word.audio.wordAudio) {
-      wx.showToast({ title: '音频未生成', icon: 'none' })
+    if (!word) return
+
+    if (this.data.isPlayingWord) {
+      audioManager.pauseAudio()
+      this.setData({ isPlayingWord: false })
       return
     }
 
-    audioManager.playAudio(word.audio.wordAudio)
-      .catch(() => {
-        wx.showToast({ title: '播放失败', icon: 'none' })
+    const audioFileID = await this.ensureWordAudio()
+    if (!audioFileID) return
+
+    try {
+      await audioManager.playAudio(audioFileID)
+      this.setData({
+        isPlayingWord: true,
+        isPlayingExample: false,
+        playingExampleIndex: -1
       })
+    } catch (err) {
+      if (err && err.code === 'PLAY_INTERRUPTED') return
+      this.setData({ isPlayingWord: false })
+      wx.showToast({ title: '播放失败', icon: 'none' })
+    }
+  },
+
+  getExampleAudio(word, index) {
+    const audio = (word && word.audio) || {}
+    const exampleAudios = Array.isArray(audio.exampleAudios) ? audio.exampleAudios : []
+    return exampleAudios[index] || (index === 0 ? audio.fullAudio : '') || ''
+  },
+
+  async ensureExampleAudio(index, text) {
+    const word = storage.getWordById(this.data.word.id)
+    const existing = this.getExampleAudio(word, index)
+    if (existing) return existing
+
+    this.setData({ generatingExampleAudioIndex: index })
+
+    try {
+      const audioFileID = await cloud.synthesizeSpeech(text, 'full')
+      const latest = storage.getWordById(word.id)
+      const audio = {
+        wordAudio: '',
+        clozeAudio: '',
+        fullAudio: '',
+        ...((latest && latest.audio) || {})
+      }
+      const exampleAudios = Array.isArray(audio.exampleAudios) ? audio.exampleAudios.slice() : []
+      exampleAudios[index] = audioFileID
+      audio.exampleAudios = exampleAudios
+      if (index === 0) audio.fullAudio = audioFileID
+
+      storage.updateWord(word.id, { audio })
+      this.refreshWord()
+      return audioFileID
+    } catch (err) {
+      console.error('例句音频生成失败', err)
+      wx.showToast({ title: '例句音频生成失败', icon: 'none' })
+      return ''
+    } finally {
+      this.setData({ generatingExampleAudioIndex: -1 })
+    }
+  },
+
+  async onPlayExampleAudio(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const word = this.data.word
+    const item = word && (word.exampleItems || []).find(ex => ex.index === index)
+    if (!item) return
+
+    if (this.data.isPlayingExample && this.data.playingExampleIndex === index) {
+      audioManager.pauseAudio()
+      this.setData({ isPlayingExample: false })
+      return
+    }
+
+    this.setData({
+      isPlayingExample: false,
+      isPlayingWord: false,
+      playingExampleIndex: index
+    })
+
+    const audioFileID = await this.ensureExampleAudio(index, item.text)
+    if (!audioFileID) return
+
+    try {
+      await audioManager.playAudio(audioFileID)
+      this.setData({
+        isPlayingExample: true,
+        playingExampleIndex: index,
+        isPlayingWord: false
+      })
+    } catch (err) {
+      if (err && err.code === 'PLAY_INTERRUPTED') return
+      this.setData({ isPlayingExample: false })
+      wx.showToast({ title: '播放失败', icon: 'none' })
+    }
+  },
+
+  async onToggleExampleTranslation(e) {
+    const index = Number(e.currentTarget.dataset.index)
+    const word = this.data.word
+    const item = word && (word.exampleItems || []).find(ex => ex.index === index)
+    if (!item) return
+
+    const key = `exampleTranslationsOpen.${index}`
+    if (!this.data.exampleTranslationsOpen[index] && !item.translation) {
+      this.setData({
+        [key]: true,
+        [`translatingExamples.${index}`]: true
+      })
+      this.refreshWord()
+
+      try {
+        const translation = await cloud.translateText(item.text)
+        const latest = storage.getWordById(word.id)
+        const content = {
+          ...((latest && latest.content) || {})
+        }
+        const translations = Array.isArray(content.exampleTranslations)
+          ? content.exampleTranslations.slice()
+          : []
+        translations[index] = translation || ''
+        content.exampleTranslations = translations
+        storage.updateWord(word.id, { content })
+      } catch (err) {
+        console.error('例句翻译失败', err)
+        wx.showToast({ title: '翻译失败', icon: 'none' })
+      } finally {
+        this.setData({ [`translatingExamples.${index}`]: false })
+        this.refreshWord()
+      }
+      return
+    }
+
+    this.setData({ [key]: !this.data.exampleTranslationsOpen[index] })
+    this.refreshWord()
   },
 
   /** 切换掌握状态 */
@@ -115,74 +333,5 @@ Page({
         }
       }
     })
-  },
-
-  /** 开始听力训练 */
-  onStartListen() {
-    wx.navigateTo({ url: '/pages/vocab-listen/vocab-listen' })
-  },
-
-  /** 重新生成音频（每个音频独立 try/catch，保存部分结果） */
-  async onRegenerateAudio() {
-    const word = this.data.word
-    if (!word) return
-
-    this.setData({ isRegeneratingAudio: true })
-    wx.showLoading({ title: '生成音频中...', mask: true })
-
-    const audio = { wordAudio: '', clozeAudio: '', fullAudio: '' }
-    let errorMsg = ''
-
-    // 生成单词发音
-    try {
-      audio.wordAudio = await cloud.synthesizeSpeech(word.word, 'word')
-    } catch (err) {
-      console.error('单词音频生成失败', err)
-      errorMsg = '单词音频: ' + (err.message || '失败')
-    }
-
-    // 生成挖空例句音频
-    if (word.content.clozeExample) {
-      try {
-        await new Promise(r => setTimeout(r, 1000))
-        const clozeText = word.content.clozeExample.replace(/___/g, '...')
-        audio.clozeAudio = await cloud.synthesizeSpeech(clozeText, 'cloze')
-      } catch (err) {
-        console.error('挖空例句音频生成失败', err)
-        if (errorMsg) errorMsg += '; '
-        errorMsg += '挖空音频: ' + (err.message || '失败')
-      }
-    }
-
-    // 生成完整例句音频
-    const fullExample = word.content.examples && word.content.examples[0]
-    if (fullExample) {
-      try {
-        await new Promise(r => setTimeout(r, 1000))
-        audio.fullAudio = await cloud.synthesizeSpeech(fullExample, 'full')
-      } catch (err) {
-        console.error('完整例句音频生成失败', err)
-        if (errorMsg) errorMsg += '; '
-        errorMsg += '完整例句音频: ' + (err.message || '失败')
-      }
-    }
-
-    // 保存已生成的音频
-    if (audio.wordAudio || audio.clozeAudio || audio.fullAudio) {
-      storage.updateWord(word.id, { audio })
-    }
-
-    wx.hideLoading()
-
-    if (errorMsg && !audio.wordAudio && !audio.clozeAudio && !audio.fullAudio) {
-      wx.showToast({ title: '全部音频生成失败', icon: 'none', duration: 3000 })
-    } else if (errorMsg) {
-      wx.showToast({ title: '部分音频生成失败', icon: 'none', duration: 3000 })
-    } else {
-      wx.showToast({ title: '音频生成完成', icon: 'success' })
-    }
-
-    this.loadWord(word.id)
-    this.setData({ isRegeneratingAudio: false })
   }
 })

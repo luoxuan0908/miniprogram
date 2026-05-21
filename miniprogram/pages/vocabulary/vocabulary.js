@@ -66,10 +66,6 @@ Page({
     wx.navigateTo({ url: '/pages/add-word/add-word' })
   },
 
-  onStartListen() {
-    wx.navigateTo({ url: '/pages/vocab-listen/vocab-listen' })
-  },
-
   onQuickMaster(e) {
     const id = e.currentTarget.dataset.id
     const word = storage.getWordById(id)

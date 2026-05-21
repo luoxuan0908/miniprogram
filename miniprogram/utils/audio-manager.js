@@ -155,7 +155,17 @@ function getAudioContext() {
   return audioContext
 }
 
+function applyPlaybackRate(ctx) {
+  const prefs = wx.getStorageSync('study_preferences') || {}
+  const speed = prefs.ttsSpeed || 100
+  const rate = Math.max(0.5, Math.min(2.0, speed / 100))
+  if (typeof ctx.playbackRate === 'number') {
+    ctx.playbackRate = rate
+  }
+}
+
 function setAudioSourceAndPlay(ctx, src) {
+  applyPlaybackRate(ctx)
   ctx.src = src
   armPlaybackGuards()
   tryStartPlayback()
@@ -184,6 +194,7 @@ function playAudio(fileID) {
     if (currentFileID === fileID && audioState === 'paused') {
       pendingPlayResolve = resolve
       pendingPlayReject = reject
+      applyPlaybackRate(ctx)
       armPlaybackGuards()
       ctx.play()
       return
@@ -264,6 +275,7 @@ function pauseAudio() {
 function resumeAudio() {
   const ctx = audioContext
   if (ctx && audioState === 'paused') {
+    applyPlaybackRate(ctx)
     ctx.play()
   }
 }

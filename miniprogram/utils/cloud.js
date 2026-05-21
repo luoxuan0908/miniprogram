@@ -82,13 +82,12 @@ function parseResource(payload) {
 }
 
 /**
- * 批量合成音频（单词发音 + 挖空例句 + 完整例句）
+ * 批量合成音频（单词发音 + 完整例句）
  * @param {string} word - 单词
- * @param {string} clozeExample - 挖空例句（带 ___）
  * @param {string} fullExample - 完整例句
- * @returns {Promise<Object>} { wordAudio, clozeAudio, fullAudio }
+ * @returns {Promise<Object>} { wordAudio, fullAudio }
  */
-async function synthesizeAllAudio(word, clozeExample, fullExample) {
+async function synthesizeAllAudio(word, fullExample) {
   const results = {
     wordAudio: '',
     clozeAudio: '',
@@ -100,16 +99,6 @@ async function synthesizeAllAudio(word, clozeExample, fullExample) {
     results.wordAudio = await synthesizeSpeech(word, 'word')
   } catch (e) {
     console.error('单词音频生成失败', e)
-  }
-
-  if (clozeExample) {
-    try {
-      // 挖空例句用原文（让 TTS 自然读出 "blank" 停顿）
-      const clozeText = clozeExample.replace(/___/g, '...')
-      results.clozeAudio = await synthesizeSpeech(clozeText, 'cloze')
-    } catch (e) {
-      console.error('挖空例句音频生成失败', e)
-    }
   }
 
   if (fullExample) {

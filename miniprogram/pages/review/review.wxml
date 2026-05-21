@@ -51,13 +51,6 @@
     />
     <view class="speed-value">{{ttsSpeedLabel}}</view>
 
-    <view class="pref-label voice-label">发音人</view>
-    <picker mode="selector" range="{{voices}}" value="{{voiceIndex}}" bindchange="onVoiceChange">
-      <view class="picker-row">
-        <text>{{selectedVoice}}</text>
-        <text>⌄</text>
-      </view>
-    </picker>
   </view>
 
   <view class="settings-list">

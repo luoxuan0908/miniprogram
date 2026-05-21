@@ -56,12 +56,6 @@
       </view>
     </view>
 
-    <!-- 挖空例句 -->
-    <view class="preview-card" wx:if="{{generatedContent.clozeExample}}">
-      <view class="preview-label">🎧 挖空例句</view>
-      <view class="preview-text cloze">{{generatedContent.clozeExample}}</view>
-    </view>
-
     <!-- 搭配 -->
     <view class="preview-card" wx:if="{{generatedContent.collocations && generatedContent.collocations.length > 0}}">
       <view class="preview-label">🔗 常见搭配</view>
@@ -83,9 +77,6 @@
       </view>
       <view class="btn btn-primary btn-block" bindtap="onSave">
         💾 保存生词
-      </view>
-      <view class="btn btn-primary btn-block" bindtap="onSaveAndListen" wx:if="{{!isGenerating}}">
-        🎧 保存并开始听力
       </view>
     </view>
   </view>

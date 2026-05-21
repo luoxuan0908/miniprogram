@@ -15,8 +15,8 @@
         <text class="diff-label"> {{difficultyLabels[word.content.difficulty]}}</text>
       </view>
       <view class="audio-btns">
-        <view class="audio-btn" bindtap="onPlayWordAudio">
-          🔊
+        <view class="audio-btn {{isPlayingWord ? 'playing' : ''}}" bindtap="onPlayWordAudio">
+          {{generatingWordAudio ? '…' : (isPlayingWord ? 'Ⅱ' : '🔊')}}
         </view>
       </view>
     </view>
@@ -48,12 +48,24 @@
       <text class="arrow {{expandedSections.examples ? 'expanded' : ''}}">▼</text>
     </view>
     <view class="collapse-body" wx:if="{{expandedSections.examples}}">
-      <view class="example-item" wx:for="{{word.content.examples}}" wx:key="*this" wx:for-item="ex">
-        <text class="example-text">{{ex}}</text>
-      </view>
-      <view class="info-row" wx:if="{{word.content.clozeExample}}">
-        <text class="info-label">🎧 挖空例句</text>
-        <text class="info-value cloze">{{word.content.clozeExample}}</text>
+      <view class="example-item" wx:for="{{word.exampleItems}}" wx:key="index" wx:for-item="ex">
+        <view class="example-tools">
+          <text class="example-no">#{{ex.index + 1}}</text>
+          <text class="example-play" bindtap="onPlayExampleAudio" data-index="{{ex.index}}">
+            {{isPlayingExample && playingExampleIndex === ex.index ? 'Ⅱ' : '▷'}}
+          </text>
+          <text class="example-translate-btn" bindtap="onToggleExampleTranslation" data-index="{{ex.index}}">文A</text>
+          <text class="audio-status" wx:if="{{generatingExampleAudioIndex === ex.index}}">生成中</text>
+        </view>
+
+        <text class="example-text">{{ex.text}}</text>
+
+        <view class="example-translation" wx:if="{{ex.translationOpen && ex.isTranslating && !ex.translation}}">
+          <text class="translating-hint">翻译中...</text>
+        </view>
+        <view class="example-translation" wx:if="{{ex.translationOpen && ex.translation}}">
+          {{ex.translation}}
+        </view>
       </view>
     </view>
   </view>
@@ -149,14 +161,8 @@
     <view class="btn {{word.status === 'mastered' ? 'btn-success' : 'btn-outline'}}" bindtap="onToggleStatus" data-status="mastered">
       {{word.status === 'mastered' ? '✅ 已掌握' : '标记掌握'}}
     </view>
-    <view class="btn btn-outline" bindtap="onRegenerateAudio" style="color: #fa8c16; border-color: #fa8c16;">
-      🔊 {{isRegeneratingAudio ? '生成中...' : (word.audio && word.audio.clozeAudio ? '重新生成音频' : '生成音频')}}
-    </view>
     <view class="btn btn-danger" bindtap="onDelete">
       🗑 删除
-    </view>
-    <view class="btn btn-primary" bindtap="onStartListen">
-      🎧 听力训练
     </view>
   </view>
 </view>

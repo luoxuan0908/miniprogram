@@ -1,6 +1,0 @@
-{
-  "usingComponents": {
-    "cloze-player": "/components/cloze-player/cloze-player"
-  },
-  "navigationBarTitleText": "Vocabulary Review"
-}

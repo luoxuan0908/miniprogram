@@ -6,8 +6,6 @@
     "pages/vocabulary/vocabulary",
     "pages/add-word/add-word",
     "pages/word-detail/word-detail",
-    "pages/vocab-listen/vocab-listen",
-    "pages/listen/listen",
     "pages/review/review"
   ],
   "window": {
@@ -30,12 +28,6 @@
         "selectedIconPath": "images/tab-words-active.png"
       },
       {
-        "pagePath": "pages/listen/listen",
-        "text": "练习",
-        "iconPath": "images/tab-listen.png",
-        "selectedIconPath": "images/tab-listen-active.png"
-      },
-      {
         "pagePath": "pages/review/review",
         "text": "我的",
         "iconPath": "images/tab-review.png",
@@ -44,8 +36,7 @@
     ]
   },
   "usingComponents": {
-    "word-card": "/components/word-card/word-card",
-    "cloze-player": "/components/cloze-player/cloze-player"
+    "word-card": "/components/word-card/word-card"
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

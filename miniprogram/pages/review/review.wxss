@@ -84,22 +84,6 @@
   margin-top: 4rpx;
 }
 
-.voice-label {
-  margin-top: 34rpx;
-}
-
-.picker-row {
-  height: 72rpx;
-  border: 1rpx solid #dfe3e8;
-  border-radius: 8rpx;
-  padding: 0 18rpx;
-  color: #000000;
-  font-size: 28rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .settings-list {
   margin-top: 26rpx;
   border: 1rpx solid #dfe3e8;

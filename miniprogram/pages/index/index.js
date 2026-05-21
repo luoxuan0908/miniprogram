@@ -12,7 +12,6 @@ Page({
     modules: [
       { key: 'documents', icon: '▤', title: '文档库', desc: '阅读和听读文章', enabled: true },
       { key: 'vocabulary', icon: '▣', title: '生词本', desc: '管理你的单词列表', enabled: true },
-      { key: 'practice', icon: '◉', title: '听力练习', desc: '听力与跟读', enabled: true },
       { key: 'preferences', icon: '♙', title: '个人中心', desc: '统计与设置', enabled: true }
     ]
   },
@@ -49,10 +48,6 @@ Page({
       wx.navigateTo({ url: '/pages/vocabulary/vocabulary' })
       return
     }
-    if (key === 'practice') {
-      wx.switchTab({ url: '/pages/listen/listen' })
-      return
-    }
     if (key === 'preferences') {
       wx.switchTab({ url: '/pages/review/review' })
       return
@@ -72,9 +67,5 @@ Page({
 
   onAddResource() {
     wx.navigateTo({ url: '/pages/resources/resources?add=1' })
-  },
-
-  onStartPractice() {
-    wx.switchTab({ url: '/pages/listen/listen' })
   }
 })

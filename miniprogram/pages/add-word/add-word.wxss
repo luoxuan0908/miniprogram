@@ -103,11 +103,6 @@
   color: #555;
 }
 
-.preview-text.cloze {
-  color: #111217;
-  font-weight: 500;
-}
-
 /* 操作按钮 */
 .action-section {
   margin-top: 32rpx;

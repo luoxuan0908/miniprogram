@@ -115,40 +115,6 @@
   color: #ffffff;
 }
 
-.practice-banner {
-  border: 1rpx solid #e7e8ec;
-  border-radius: 14rpx;
-  padding: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24rpx;
-}
-
-.banner-title {
-  font-size: 30rpx;
-  color: #111217;
-  font-weight: 800;
-}
-
-.banner-subtitle {
-  color: #8b8f99;
-  font-size: 23rpx;
-  margin-top: 6rpx;
-}
-
-.banner-play {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 50%;
-  background: #2e6be6;
-  color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-}
-
 .word-list {
   display: flex;
   flex-direction: column;

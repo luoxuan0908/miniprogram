@@ -69,7 +69,6 @@ const DEEPSEEK_PROMPT = (word) => `你是一位专业的英语教学专家。请
   "shortDefinition": "简洁英文释义（不超过15词）",
   "chineseHint": "中文提示（10字以内）",
   "examples": ["自然例句1（包含目标单词）", "自然例句2（包含目标单词）"],
-  "clozeExample": "挖空例句（用___替换目标单词的句子）",
   "collocations": ["常见搭配1", "常见搭配2"],
   "rootAffix": "词根词缀分析，如无则填'无'",
   "synonyms": ["近义词1", "近义词2"],

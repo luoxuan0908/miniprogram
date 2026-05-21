@@ -31,14 +31,6 @@
     <view class="filter {{activeTab === 'mastered' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="mastered">已掌握 {{tabCounts.mastered || 0}}</view>
   </view>
 
-  <view class="practice-banner" wx:if="{{totalCount > 0}}" bindtap="onStartListen">
-    <view>
-      <view class="banner-title">挖空听力</view>
-      <view class="banner-subtitle">按复习计划进行听力练习</view>
-    </view>
-    <view class="banner-play">▶</view>
-  </view>
-
   <view class="word-list" wx:if="{{words.length > 0}}">
     <view class="word-card" wx:for="{{words}}" wx:key="id">
       <view class="word-main" bindtap="onWordTap" data-id="{{item.id}}">

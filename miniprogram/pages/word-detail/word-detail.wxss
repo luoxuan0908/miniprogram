@@ -79,6 +79,11 @@
   font-size: 32rpx;
 }
 
+.audio-btn.playing {
+  background: #2f6eea;
+  color: #ffffff;
+}
+
 /* 可折叠卡片 */
 .collapse-card {
   background: #fff;
@@ -137,17 +142,9 @@
   color: #555;
 }
 
-.info-value.cloze {
-  color: #111217;
-  font-weight: 500;
-  background: #fff2f0;
-  padding: 8rpx 16rpx;
-  border-radius: 8rpx;
-}
-
 /* 例句 */
 .example-item {
-  padding: 16rpx 0;
+  padding: 22rpx 0;
   border-bottom: 1rpx solid #f0f0f0;
 }
 
@@ -159,6 +156,49 @@
   font-size: 28rpx;
   color: #444;
   line-height: 1.6;
+}
+
+.example-tools {
+  min-height: 44rpx;
+  display: flex;
+  align-items: center;
+  gap: 34rpx;
+  color: #a4a9b1;
+  font-size: 22rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+
+.example-no {
+  min-width: 44rpx;
+}
+
+.example-play {
+  font-size: 26rpx;
+}
+
+.example-translate-btn {
+  font-size: 22rpx;
+}
+
+.audio-status {
+  color: #7c818c;
+  font-size: 20rpx;
+  font-weight: 500;
+}
+
+.example-translation {
+  margin-top: 16rpx;
+  color: #39465a;
+  font-size: 26rpx;
+  line-height: 1.65;
+  font-weight: 600;
+}
+
+.translating-hint {
+  color: #9ca3af;
+  font-size: 24rpx;
+  font-weight: 400;
 }
 
 /* 标签列表 */
