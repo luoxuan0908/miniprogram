@@ -1,6 +1,6 @@
 const storage = require('../../utils/storage')
-const cloud = require('../../utils/cloud')
 const { WORD_STATUS } = require('../../utils/constants')
+const cloud = require('../../utils/cloud')
 
 Page({
   data: {
@@ -15,6 +15,7 @@ Page({
 
   onShow() {
     this.loadWords()
+    this.hydrateWordsIfEmpty()
   },
 
   loadWords() {
@@ -66,6 +67,26 @@ Page({
     wx.navigateTo({ url: '/pages/add-word/add-word' })
   },
 
+  async hydrateWordsIfEmpty() {
+    if (this.data.allWords.length > 0) return
+    try {
+      const result = await cloud.syncToCloud({ action: 'pull', scope: 'words' })
+      if (result && result.words && result.words.length) {
+        const localWords = storage.getAllWords()
+        const localIds = new Set(localWords.map(w => w.id))
+        for (const cw of result.words) {
+          if (!localIds.has(cw.id)) {
+            const { _id, _openid, ownerId, createdBy, updatedBy, syncedAt, ...wordData } = cw
+            storage.addWord(wordData)
+          }
+        }
+        this.loadWords()
+      }
+    } catch (err) {
+      console.error('拉取云端生词失败', err)
+    }
+  },
+
   onQuickMaster(e) {
     const id = e.currentTarget.dataset.id
     const word = storage.getWordById(id)
@@ -92,7 +113,7 @@ Page({
 
     wx.showLoading({ title: '同步中...' })
     try {
-      await cloud.syncToCloud(allWords)
+      await cloud.syncToCloud({ words: allWords })
       wx.hideLoading()
       wx.showToast({ title: '同步完成', icon: 'success' })
     } catch (err) {

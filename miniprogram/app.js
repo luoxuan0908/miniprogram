@@ -1,3 +1,6 @@
+const vocabStorage = require('./utils/storage')
+const resourceStorage = require('./utils/resource-storage')
+
 App({
   onLaunch() {
     wx.cloud.init({
@@ -9,9 +12,12 @@ App({
 
   async checkLogin() {
     const userInfo = wx.getStorageSync('userInfo')
-    if (userInfo) {
+    const cachedOpenid = wx.getStorageSync('openid')
+    if (userInfo && cachedOpenid) {
       this.globalData.userInfo = userInfo
+      this.globalData.openid = cachedOpenid
       this.globalData.isLoggedIn = true
+      this.initUserCaches()
       return
     }
     try {
@@ -21,9 +27,15 @@ App({
       this.globalData.openid = res.result.openid
       this.globalData.isLoggedIn = true
       wx.setStorageSync('openid', res.result.openid)
+      this.initUserCaches()
     } catch (err) {
       console.error('登录失败', err)
     }
+  },
+
+  initUserCaches() {
+    vocabStorage.initForActiveUser()
+    resourceStorage.initForActiveUser()
   },
 
   globalData: {

@@ -41,8 +41,8 @@
   <view class="prefs-panel">
     <view class="pref-label">语速</view>
     <slider
-      min="70"
-      max="130"
+      min="50"
+      max="200"
       value="{{ttsSpeed}}"
       activeColor="#000000"
       backgroundColor="#c9cbd0"
@@ -54,6 +54,14 @@
   </view>
 
   <view class="settings-list">
+    <view class="settings-row" bindtap="onSyncToCloud">
+      <text>{{syncing ? '同步中...' : '上传数据到云端'}}</text>
+      <text class="settings-arrow">↑</text>
+    </view>
+    <view class="settings-row" bindtap="onPullFromCloud">
+      <text>{{syncing ? '拉取中...' : '从云端拉取数据'}}</text>
+      <text class="settings-arrow">↓</text>
+    </view>
     <view class="settings-row" bindtap="onExport">
       <text>导出学习数据</text>
       <text class="settings-arrow">→</text>

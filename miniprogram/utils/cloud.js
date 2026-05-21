@@ -114,19 +114,20 @@ async function synthesizeAllAudio(word, fullExample) {
 
 /**
  * 调用 syncData 云函数，同步本地数据到云端
- * @param {Array} words - 要同步的生词数组
+ * @param {Array|Object} payload - 兼容旧的 words 数组，也支持增量同步 payload
  * @returns {Promise<void>}
  */
-function syncToCloud(words) {
+function syncToCloud(payload) {
+  const data = Array.isArray(payload) ? { words: payload } : (payload || {})
   return new Promise((resolve, reject) => {
     wx.cloud.callFunction({
       name: 'syncData',
-      data: { words },
+      data,
       success: res => {
         if (res.result && res.result.success) {
-          resolve()
+          resolve(res.result)
         } else {
-          reject(new Error(res.result.error || '数据同步失败'))
+          reject(new Error((res.result && res.result.error) || '数据同步失败'))
         }
       },
       fail: err => reject(err)

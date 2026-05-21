@@ -16,6 +16,7 @@ Page({
 
   onLoad(options) {
     this.loadResources()
+    this.hydrateResourcesIfEmpty()
     if (options && options.add === '1') {
       this.setData({ showAddModal: true })
     }
@@ -23,6 +24,7 @@ Page({
 
   onShow() {
     this.loadResources()
+    this.hydrateResourcesIfEmpty()
   },
 
   loadResources() {
@@ -47,6 +49,18 @@ Page({
       resourceUrl: '',
       selectedFile: null
     })
+  },
+
+  async hydrateResourcesIfEmpty() {
+    if (this.data.resources.length > 0) return
+    try {
+      const result = await resourceStorage.hydrateFromCloud()
+      if (result && result.success && result.resources && result.resources.length) {
+        this.loadResources()
+      }
+    } catch (err) {
+      console.error('拉取云端资源失败', err)
+    }
   },
 
   onCloseAddModal() {

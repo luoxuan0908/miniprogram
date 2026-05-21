@@ -1,10 +1,44 @@
 /**
- * resource-storage.js - Documents/resource local persistence.
- * Keeps resource data separate from the existing vocab_words store.
+ * resource-storage.js - User-scoped three-layer document persistence.
+ * Keeps document resources separate from vocab data and stores each resource by id.
  */
 
-const STORAGE_KEY = 'learning_resources_v1'
+const userStorage = require('./user-storage')
+
+const LEGACY_STORAGE_KEY = 'learning_resources_v1'
+const LEGACY_CLAIM_SCOPE = 'learning_resources_v1'
+const ANONYMOUS_CLAIM_SCOPE = 'anonymous_resources'
+const INDEX_KEY = 'resource_index'
+const META_KEY = 'resource_meta'
+const RESOURCE_KEY_PREFIX = 'resource_'
+const STORAGE_VERSION = 2
 const MAX_SEGMENTS = 80
+const CLOUD_SYNC_DEBOUNCE_MS = 3000
+
+let state = createEmptyState()
+let syncTimer = null
+
+function createEmptyState(userId = '') {
+  return {
+    userId,
+    loaded: false,
+    index: [],
+    meta: createDefaultMeta(),
+    resourceMap: new Map()
+  }
+}
+
+function createDefaultMeta() {
+  return {
+    version: STORAGE_VERSION,
+    lastSyncTime: 0,
+    totalCount: 0,
+    dirtyIds: [],
+    deletedIds: [],
+    migratedAt: 0,
+    updatedAt: 0
+  }
+}
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 6)
@@ -14,26 +48,18 @@ function now() {
   return Date.now()
 }
 
-function getAllResources() {
-  try {
-    return wx.getStorageSync(STORAGE_KEY) || []
-  } catch (e) {
-    return []
-  }
+function unique(values) {
+  return Array.from(new Set((values || []).filter(Boolean)))
 }
 
-function saveAllResources(resources) {
-  try {
-    wx.setStorageSync(STORAGE_KEY, resources)
-  } catch (e) {
-    console.error('保存资源失败', e)
-  }
+function resourceKey(id) {
+  return `${RESOURCE_KEY_PREFIX}${id}`
 }
 
 function normalizeSegment(segment, index) {
   const text = typeof segment === 'string' ? segment : (segment.text || '')
   return {
-    index: index + 1,
+    index: segment.index || index + 1,
     text: text.trim(),
     translation: segment.translation || '',
     audioFileID: segment.audioFileID || '',
@@ -49,57 +75,311 @@ function buildSummary(segments) {
   return first.text.length > 90 ? first.text.slice(0, 90) + '...' : first.text
 }
 
-function addResource(resourceData) {
-  const resources = getAllResources()
-  const createdAt = now()
-  const segments = (resourceData.segments || [])
+function normalizeResource(resource, userId) {
+  const timestamp = now()
+  const segments = (resource.segments || [])
     .slice(0, MAX_SEGMENTS)
     .map(normalizeSegment)
-    .filter(s => s.text)
+    .filter(segment => segment.text)
 
-  const resource = {
-    id: generateId(),
-    type: 'document',
-    title: resourceData.title || 'Untitled Resource',
-    sourceType: resourceData.sourceType || 'url',
-    sourceUrl: resourceData.sourceUrl || '',
-    fileName: resourceData.fileName || '',
-    fileType: resourceData.fileType || '',
-    format: resourceData.format || 'html',
+  return {
+    id: resource.id || generateId(),
+    ownerId: resource.ownerId || userId,
+    type: resource.type || 'document',
+    title: resource.title || 'Untitled Resource',
+    sourceType: resource.sourceType || 'url',
+    sourceUrl: resource.sourceUrl || '',
+    fileName: resource.fileName || '',
+    fileType: resource.fileType || '',
+    format: resource.format || 'html',
     segments,
-    summary: resourceData.summary || buildSummary(segments),
+    summary: resource.summary || buildSummary(segments),
+    createdAt: resource.createdAt || timestamp,
+    updatedAt: resource.updatedAt || timestamp,
+    lastOpenedAt: resource.lastOpenedAt || 0
+  }
+}
+
+function toIndexEntry(resource) {
+  const segments = resource.segments || []
+  return {
+    id: resource.id,
+    type: resource.type || 'document',
+    title: resource.title || 'Untitled Resource',
+    sourceType: resource.sourceType || 'url',
+    sourceUrl: resource.sourceUrl || '',
+    fileName: resource.fileName || '',
+    fileType: resource.fileType || '',
+    format: resource.format || 'html',
+    summary: resource.summary || buildSummary(segments),
+    segmentCount: segments.length,
+    cachedAudio: segments.filter(s => !!s.audioFileID).length,
+    createdAt: resource.createdAt || 0,
+    updatedAt: resource.updatedAt || 0,
+    lastOpenedAt: resource.lastOpenedAt || 0
+  }
+}
+
+function normalizeMeta(meta) {
+  return {
+    ...createDefaultMeta(),
+    ...(meta || {}),
+    version: STORAGE_VERSION,
+    dirtyIds: unique(meta && meta.dirtyIds),
+    deletedIds: unique(meta && meta.deletedIds)
+  }
+}
+
+function saveIndex() {
+  state.meta.totalCount = state.index.length
+  userStorage.setUserStorageSync(INDEX_KEY, state.index, state.userId)
+}
+
+function saveMeta() {
+  state.meta = normalizeMeta({
+    ...state.meta,
+    totalCount: state.index.length,
+    updatedAt: now()
+  })
+  userStorage.setUserStorageSync(META_KEY, state.meta, state.userId)
+}
+
+function namespaceHasData(userId) {
+  const index = userStorage.getUserStorageSync(INDEX_KEY, [], userId)
+  const meta = userStorage.getUserStorageSync(META_KEY, null, userId)
+  return (Array.isArray(index) && index.length > 0) || !!(meta && meta.totalCount)
+}
+
+function namespaceHasState(userId) {
+  const index = userStorage.getUserStorageSync(INDEX_KEY, [], userId)
+  const meta = normalizeMeta(userStorage.getUserStorageSync(META_KEY, null, userId))
+  return (Array.isArray(index) && index.length > 0) ||
+    meta.totalCount > 0 ||
+    meta.lastSyncTime > 0 ||
+    meta.migratedAt > 0 ||
+    meta.updatedAt > 0 ||
+    meta.dirtyIds.length > 0 ||
+    meta.deletedIds.length > 0
+}
+
+function readNamespaceResources(userId) {
+  const index = userStorage.getUserStorageSync(INDEX_KEY, [], userId)
+  if (!Array.isArray(index) || !index.length) return []
+
+  return index
+    .map(entry => userStorage.getUserStorageSync(resourceKey(entry.id), null, userId))
+    .filter(Boolean)
+}
+
+function mergeResources(primary, secondary) {
+  const byId = new Map()
+  ;(primary || []).forEach(resource => {
+    if (resource && resource.id) byId.set(resource.id, resource)
+  })
+  ;(secondary || []).forEach(resource => {
+    if (!resource || !resource.id) return
+    const existing = byId.get(resource.id)
+    if (!existing || (resource.updatedAt || 0) > (existing.updatedAt || 0)) {
+      byId.set(resource.id, resource)
+    }
+  })
+  return Array.from(byId.values())
+}
+
+function writeResourcesToNamespace(resources, userId, options = {}) {
+  const normalized = (resources || []).map(resource => normalizeResource(resource, userId))
+  const index = normalized.map(toIndexEntry)
+  const meta = normalizeMeta({
+    ...createDefaultMeta(),
+    migratedAt: options.migratedAt || 0,
+    totalCount: normalized.length,
+    dirtyIds: options.markDirty ? normalized.map(resource => resource.id) : [],
+    updatedAt: now()
+  })
+
+  normalized.forEach(resource => {
+    userStorage.setUserStorageSync(resourceKey(resource.id), resource, userId)
+  })
+  userStorage.setUserStorageSync(INDEX_KEY, index, userId)
+  userStorage.setUserStorageSync(META_KEY, meta, userId)
+
+  if (state.userId === userId) {
+    state.index = index
+    state.meta = meta
+    state.resourceMap = new Map(normalized.map(resource => [resource.id, resource]))
+  }
+}
+
+function migrateLegacyIfNeeded(userId) {
+  const hasCurrentState = namespaceHasState(userId)
+  const legacyResources = userStorage.readStorage(LEGACY_STORAGE_KEY, [])
+  const hasLegacy = Array.isArray(legacyResources) && legacyResources.length > 0
+  const anonymousHasData = userId !== userStorage.ANONYMOUS_USER_ID && namespaceHasData(userStorage.ANONYMOUS_USER_ID)
+  const canUseLegacy = hasLegacy && (userStorage.isAnonymousUser(userId) || userStorage.canClaimLegacy(LEGACY_CLAIM_SCOPE, userId))
+  const canUseAnonymous = anonymousHasData && userStorage.canClaimLegacy(ANONYMOUS_CLAIM_SCOPE, userId)
+
+  if (!hasLegacy && !anonymousHasData) return
+
+  if (!hasCurrentState) {
+    const anonymousResources = canUseAnonymous ? readNamespaceResources(userStorage.ANONYMOUS_USER_ID) : []
+    const sourceResources = mergeResources(canUseLegacy ? legacyResources : [], anonymousResources)
+    if (sourceResources.length) {
+      writeResourcesToNamespace(sourceResources, userId, {
+        migratedAt: now(),
+        markDirty: !userStorage.isAnonymousUser(userId)
+      })
+      if (!userStorage.isAnonymousUser(userId)) {
+        if (canUseLegacy) userStorage.setLegacyClaim(LEGACY_CLAIM_SCOPE, userId)
+        if (canUseAnonymous) userStorage.setLegacyClaim(ANONYMOUS_CLAIM_SCOPE, userId)
+        if ((hasLegacy && !canUseLegacy) || (anonymousHasData && !canUseAnonymous)) {
+          userStorage.markLegacyUnclaimed(userId, {
+            learningResources: hasLegacy && !canUseLegacy,
+            anonymousResources: anonymousHasData && !canUseAnonymous
+          })
+        }
+        scheduleCloudSync()
+      }
+      return
+    }
+
+    if (!userStorage.isAnonymousUser(userId)) {
+      userStorage.markLegacyUnclaimed(userId, {
+        learningResources: hasLegacy && !canUseLegacy,
+        anonymousResources: anonymousHasData && !canUseAnonymous
+      })
+    }
+    return
+  }
+
+  if (!userStorage.isAnonymousUser(userId)) {
+    const legacyClaimedBy = userStorage.getLegacyClaim(LEGACY_CLAIM_SCOPE)
+    const anonymousClaimedBy = userStorage.getLegacyClaim(ANONYMOUS_CLAIM_SCOPE)
+    userStorage.markLegacyUnclaimed(userId, {
+      learningResources: hasLegacy && legacyClaimedBy !== userId,
+      anonymousResources: anonymousHasData && anonymousClaimedBy !== userId
+    })
+  }
+}
+
+function loadStateForActiveUser() {
+  const userId = userStorage.getActiveUserId()
+  state = createEmptyState(userId)
+  state.index = userStorage.getUserStorageSync(INDEX_KEY, [], userId) || []
+  state.meta = normalizeMeta(userStorage.getUserStorageSync(META_KEY, null, userId))
+  state.loaded = true
+  migrateLegacyIfNeeded(userId)
+  state.index = userStorage.getUserStorageSync(INDEX_KEY, [], userId) || []
+  state.meta = normalizeMeta(userStorage.getUserStorageSync(META_KEY, null, userId))
+}
+
+function ensureState() {
+  const userId = userStorage.getActiveUserId()
+  if (state.userId !== userId || !state.loaded) {
+    loadStateForActiveUser()
+  }
+  return state
+}
+
+function findIndexEntry(id) {
+  return state.index.find(entry => entry.id === id) || null
+}
+
+function upsertIndex(resource) {
+  const entry = toIndexEntry(resource)
+  const index = state.index.findIndex(item => item.id === resource.id)
+  if (index === -1) {
+    state.index.unshift(entry)
+  } else {
+    state.index[index] = entry
+  }
+}
+
+function markDirty(id) {
+  state.meta.dirtyIds = unique([...(state.meta.dirtyIds || []), id])
+  state.meta.deletedIds = (state.meta.deletedIds || []).filter(deletedId => deletedId !== id)
+  saveMeta()
+  scheduleCloudSync()
+}
+
+function persistResource(resource, options = {}) {
+  ensureState()
+  const normalized = normalizeResource(resource, state.userId)
+  state.resourceMap.set(normalized.id, normalized)
+  upsertIndex(normalized)
+  userStorage.setUserStorageSync(resourceKey(normalized.id), normalized, state.userId)
+  saveIndex()
+  if (options.dirty !== false) {
+    markDirty(normalized.id)
+  } else {
+    saveMeta()
+  }
+  return normalized
+}
+
+function loadResource(id, options = {}) {
+  ensureState()
+  if (!id || (!options.skipIndexCheck && !findIndexEntry(id))) return null
+  if (state.resourceMap.has(id)) return state.resourceMap.get(id)
+
+  const resource = userStorage.getUserStorageSync(resourceKey(id), null, state.userId)
+  if (!resource) return null
+
+  const normalized = normalizeResource(resource, state.userId)
+  state.resourceMap.set(id, normalized)
+  return normalized
+}
+
+function loadResourcesByEntries(entries) {
+  return (entries || []).map(entry => loadResource(entry.id, { skipIndexCheck: true })).filter(Boolean)
+}
+
+function getAllResources() {
+  ensureState()
+  return loadResourcesByEntries(state.index)
+}
+
+function addResource(resourceData = {}) {
+  ensureState()
+  const createdAt = now()
+  return persistResource({
+    ...resourceData,
+    id: generateId(),
+    ownerId: state.userId,
     createdAt,
     updatedAt: createdAt,
     lastOpenedAt: 0
-  }
-
-  resources.unshift(resource)
-  saveAllResources(resources)
-  return resource
+  })
 }
 
 function updateResource(id, updates) {
-  const resources = getAllResources()
-  const index = resources.findIndex(r => r.id === id)
-  if (index === -1) return null
+  const resource = loadResource(id)
+  if (!resource) return null
 
-  resources[index] = {
-    ...resources[index],
+  return persistResource({
+    ...resource,
     ...updates,
-    id: resources[index].id,
-    createdAt: resources[index].createdAt,
+    id: resource.id,
+    ownerId: resource.ownerId || state.userId,
+    createdAt: resource.createdAt,
     updatedAt: now()
-  }
-  saveAllResources(resources)
-  return resources[index]
+  })
 }
 
 function deleteResource(id) {
-  saveAllResources(getAllResources().filter(r => r.id !== id))
+  ensureState()
+  if (!id) return
+  state.resourceMap.delete(id)
+  state.index = state.index.filter(entry => entry.id !== id)
+  state.meta.dirtyIds = (state.meta.dirtyIds || []).filter(dirtyId => dirtyId !== id)
+  state.meta.deletedIds = unique([...(state.meta.deletedIds || []), id])
+  userStorage.removeUserStorageSync(resourceKey(id), state.userId)
+  saveIndex()
+  saveMeta()
+  scheduleCloudSync()
 }
 
 function getResourceById(id) {
-  return getAllResources().find(r => r.id === id) || null
+  return loadResource(id)
 }
 
 function markOpened(id) {
@@ -107,11 +387,11 @@ function markOpened(id) {
 }
 
 function searchResources(query) {
-  const resources = getAllResources()
-  if (!query || !query.trim()) return resources
+  ensureState()
+  if (!query || !query.trim()) return getAllResources()
 
   const q = query.trim().toLowerCase()
-  return resources.filter(resource => {
+  return getAllResources().filter(resource => {
     return (resource.title || '').toLowerCase().includes(q) ||
       (resource.summary || '').toLowerCase().includes(q) ||
       (resource.sourceUrl || '').toLowerCase().includes(q)
@@ -119,14 +399,17 @@ function searchResources(query) {
 }
 
 function getRecentResources(limit = 4) {
-  return getAllResources()
-    .slice()
-    .sort((a, b) => (b.lastOpenedAt || b.createdAt) - (a.lastOpenedAt || a.createdAt))
-    .slice(0, limit)
+  ensureState()
+  return loadResourcesByEntries(
+    state.index
+      .slice()
+      .sort((a, b) => (b.lastOpenedAt || b.createdAt) - (a.lastOpenedAt || a.createdAt))
+      .slice(0, limit)
+  )
 }
 
 function updateSegment(resourceId, segmentIndex, updates) {
-  const resource = getResourceById(resourceId)
+  const resource = loadResource(resourceId)
   if (!resource) return null
 
   const segments = (resource.segments || []).map(segment => {
@@ -141,37 +424,128 @@ function updateSegment(resourceId, segmentIndex, updates) {
 }
 
 function getStats() {
-  const resources = getAllResources()
-  const segments = resources.reduce((sum, r) => sum + ((r.segments || []).length), 0)
-  const cachedAudio = resources.reduce((sum, r) => {
-    return sum + (r.segments || []).filter(s => !!s.audioFileID).length
-  }, 0)
-
+  ensureState()
   return {
-    total: resources.length,
-    documents: resources.filter(r => r.type === 'document').length,
-    segments,
-    cachedAudio
+    total: state.index.length,
+    documents: state.index.filter(r => r.type === 'document').length,
+    segments: state.index.reduce((sum, r) => sum + (r.segmentCount || 0), 0),
+    cachedAudio: state.index.reduce((sum, r) => sum + (r.cachedAudio || 0), 0)
   }
 }
 
 function clearAllAudioReferences() {
-  const resources = getAllResources().map(resource => ({
-    ...resource,
-    segments: (resource.segments || []).map(segment => ({
-      ...segment,
-      audioFileID: '',
-      audioStatus: 'idle',
-      duration: 0
-    })),
-    updatedAt: now()
-  }))
-  saveAllResources(resources)
+  getAllResources().forEach(resource => {
+    updateResource(resource.id, {
+      segments: (resource.segments || []).map(segment => ({
+        ...segment,
+        audioFileID: '',
+        audioStatus: 'idle',
+        duration: 0
+      }))
+    })
+  })
+}
+
+function clearSyncTimer() {
+  if (syncTimer) {
+    clearTimeout(syncTimer)
+    syncTimer = null
+  }
+}
+
+function scheduleCloudSync() {
+  ensureState()
+  if (userStorage.isAnonymousUser(state.userId)) return
+  clearSyncTimer()
+  syncTimer = setTimeout(() => {
+    syncTimer = null
+    flushPendingSync().catch(err => console.error('资源云端同步失败', err))
+  }, CLOUD_SYNC_DEBOUNCE_MS)
+}
+
+function callSyncData(payload) {
+  return new Promise((resolve, reject) => {
+    if (!wx.cloud || typeof wx.cloud.callFunction !== 'function') {
+      resolve({ skipped: true, reason: 'cloud unavailable' })
+      return
+    }
+    wx.cloud.callFunction({
+      name: 'syncData',
+      data: payload,
+      success: res => resolve(res.result || {}),
+      fail: err => reject(err)
+    })
+  })
+}
+
+function removeSyncedIds(sentDirtyIds, sentDeletedIds) {
+  ensureState()
+  const dirtySet = new Set(sentDirtyIds)
+  const deletedSet = new Set(sentDeletedIds)
+  state.meta.dirtyIds = (state.meta.dirtyIds || []).filter(id => !dirtySet.has(id))
+  state.meta.deletedIds = (state.meta.deletedIds || []).filter(id => !deletedSet.has(id))
+  state.meta.lastSyncTime = now()
+  saveMeta()
+}
+
+function flushPendingSync(options = {}) {
+  ensureState()
+  if (userStorage.isAnonymousUser(state.userId)) {
+    return Promise.resolve({ skipped: true, reason: 'anonymous user' })
+  }
+
+  const dirtyIds = options.forceAll
+    ? state.index.map(entry => entry.id)
+    : unique(state.meta.dirtyIds)
+  const deletedIds = unique(state.meta.deletedIds)
+
+  if (!dirtyIds.length && !deletedIds.length) {
+    return Promise.resolve({ skipped: true, reason: 'nothing to sync' })
+  }
+
+  const resources = dirtyIds.map(id => loadResource(id)).filter(Boolean)
+  const payload = {
+    ownerId: state.userId,
+    resources,
+    deletedResourceIds: deletedIds
+  }
+
+  const sentDirtyIds = dirtyIds.slice()
+  const sentDeletedIds = deletedIds.slice()
+  return callSyncData(payload).then(result => {
+    if (result && result.success) {
+      removeSyncedIds(sentDirtyIds, sentDeletedIds)
+    }
+    return result
+  })
+}
+
+function hydrateFromCloud() {
+  ensureState()
+  if (userStorage.isAnonymousUser(state.userId) || namespaceHasState(state.userId)) {
+    return Promise.resolve({ skipped: true })
+  }
+
+  return callSyncData({ action: 'pull', scope: 'resources', ownerId: state.userId }).then(result => {
+    if (result && result.success && Array.isArray(result.resources) && result.resources.length) {
+      writeResourcesToNamespace(result.resources, state.userId, { markDirty: false })
+    }
+    return result
+  })
+}
+
+function initForActiveUser() {
+  loadStateForActiveUser()
+  if (!userStorage.isAnonymousUser(state.userId)) {
+    hydrateFromCloud().catch(err => console.error('资源云端拉取失败', err))
+    if ((state.meta.dirtyIds || []).length || (state.meta.deletedIds || []).length) {
+      scheduleCloudSync()
+    }
+  }
 }
 
 module.exports = {
   getAllResources,
-  saveAllResources,
   addResource,
   updateResource,
   deleteResource,
@@ -182,5 +556,8 @@ module.exports = {
   updateSegment,
   getStats,
   clearAllAudioReferences,
-  generateId
+  generateId,
+  flushPendingSync,
+  hydrateFromCloud,
+  initForActiveUser
 }

@@ -3,6 +3,8 @@
  * 基于 wx.createInnerAudioContext 封装，支持播放/暂停/停止/预加载
  */
 
+const userStorage = require('./user-storage')
+
 let audioContext = null
 let currentFileID = ''
 let audioState = 'stopped' // 'playing' | 'paused' | 'stopped'
@@ -156,7 +158,7 @@ function getAudioContext() {
 }
 
 function applyPlaybackRate(ctx) {
-  const prefs = wx.getStorageSync('study_preferences') || {}
+  const prefs = userStorage.getPreferences()
   const speed = prefs.ttsSpeed || 100
   const rate = Math.max(0.5, Math.min(2.0, speed / 100))
   if (typeof ctx.playbackRate === 'number') {
