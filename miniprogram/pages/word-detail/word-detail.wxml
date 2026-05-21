@@ -1,0 +1,167 @@
+<!--pages/word-detail/word-detail.wxml-->
+<view class="container" wx:if="{{word}}">
+  <!-- 单词头部 -->
+  <view class="word-header">
+    <view class="word-title-row">
+      <text class="word-name">{{word.word}}</text>
+      <view class="tag tag-{{word.status}}">
+        {{word.status === 'new' ? '新词' : word.status === 'learning' ? '学习中' : '已掌握'}}
+      </view>
+    </view>
+    <view class="word-meta">
+      <view class="difficulty" wx:if="{{word.content.difficulty}}">
+        <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this"
+          class="star {{item <= word.content.difficulty ? 'active' : ''}}">★</text>
+        <text class="diff-label"> {{difficultyLabels[word.content.difficulty]}}</text>
+      </view>
+      <view class="audio-btns">
+        <view class="audio-btn" bindtap="onPlayWordAudio">
+          🔊
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 可折叠内容区 -->
+  <!-- 释义 -->
+  <view class="collapse-card">
+    <view class="collapse-header" bindtap="onToggle" data-section="definition">
+      <text class="collapse-title">📖 释义</text>
+      <text class="arrow {{expandedSections.definition ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.definition}}">
+      <view class="info-row" wx:if="{{word.content.shortDefinition}}">
+        <text class="info-label">英文释义</text>
+        <text class="info-value emphasis">{{word.content.shortDefinition}}</text>
+      </view>
+      <view class="info-row" wx:if="{{word.content.chineseHint}}">
+        <text class="info-label">中文提示</text>
+        <text class="info-value">{{word.content.chineseHint}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 例句 -->
+  <view class="collapse-card">
+    <view class="collapse-header" bindtap="onToggle" data-section="examples">
+      <text class="collapse-title">📝 例句</text>
+      <text class="arrow {{expandedSections.examples ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.examples}}">
+      <view class="example-item" wx:for="{{word.content.examples}}" wx:key="*this" wx:for-item="ex">
+        <text class="example-text">{{ex}}</text>
+      </view>
+      <view class="info-row" wx:if="{{word.content.clozeExample}}">
+        <text class="info-label">🎧 挖空例句</text>
+        <text class="info-value cloze">{{word.content.clozeExample}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搭配 -->
+  <view class="collapse-card" wx:if="{{word.content.collocations && word.content.collocations.length > 0}}">
+    <view class="collapse-header" bindtap="onToggle" data-section="collocations">
+      <text class="collapse-title">🔗 常见搭配</text>
+      <text class="arrow {{expandedSections.collocations ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.collocations}}">
+      <view class="tag-list">
+        <view class="collocation-tag" wx:for="{{word.content.collocations}}" wx:key="*this" wx:for-item="col">
+          {{col}}
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 词根词缀 -->
+  <view class="collapse-card" wx:if="{{word.content.rootAffix && word.content.rootAffix !== '无'}}">
+    <view class="collapse-header" bindtap="onToggle" data-section="rootAffix">
+      <text class="collapse-title">🌱 词根词缀</text>
+      <text class="arrow {{expandedSections.rootAffix ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.rootAffix}}">
+      <text class="info-value">{{word.content.rootAffix}}</text>
+    </view>
+  </view>
+
+  <!-- 近义/反义 -->
+  <view class="collapse-card" wx:if="{{(word.content.synonyms && word.content.synonyms.length > 0) || (word.content.antonyms && word.content.antonyms.length > 0)}}">
+    <view class="collapse-header" bindtap="onToggle" data-section="synonyms">
+      <text class="collapse-title">↔️ 近义词 / 反义词</text>
+      <text class="arrow {{expandedSections.synonyms ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.synonyms}}">
+      <view class="info-row" wx:if="{{word.content.synonyms && word.content.synonyms.length > 0}}">
+        <text class="info-label">近义词</text>
+        <view class="tag-list">
+          <text class="syn-tag" wx:for="{{word.content.synonyms}}" wx:key="*this" wx:for-item="syn">{{syn}}</text>
+        </view>
+      </view>
+      <view class="info-row" wx:if="{{word.content.antonyms && word.content.antonyms.length > 0}}">
+        <text class="info-label">反义词</text>
+        <view class="tag-list">
+          <text class="ant-tag" wx:for="{{word.content.antonyms}}" wx:key="*this" wx:for-item="ant">{{ant}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 记忆提示 -->
+  <view class="collapse-card" wx:if="{{word.content.memoryTip}}">
+    <view class="collapse-header" bindtap="onToggle" data-section="memoryTip">
+      <text class="collapse-title">🧠 记忆提示</text>
+      <text class="arrow {{expandedSections.memoryTip ? 'expanded' : ''}}">▼</text>
+    </view>
+    <view class="collapse-body" wx:if="{{expandedSections.memoryTip}}">
+      <view class="memory-tip-box">
+        <text>{{word.content.memoryTip}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 学习统计 -->
+  <view class="stats-card">
+    <view class="section-title">📊 学习统计</view>
+    <view class="stats-row">
+      <view class="stat-item">
+        <text class="stat-num">{{word.stats.correctCount}}/{{word.stats.totalAttempts}}</text>
+        <text class="stat-desc">正确/总次数</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">{{accuracy}}%</text>
+        <text class="stat-desc">正确率</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num">Lv.{{word.reviewLevel}}</text>
+        <text class="stat-desc">复习等级</text>
+      </view>
+    </view>
+    <view class="review-progress">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{reviewProgress}}%"></view>
+      </view>
+      <text class="progress-text">距永久掌握 {{reviewProgress}}%</text>
+    </view>
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-actions">
+    <view class="btn {{word.status === 'mastered' ? 'btn-success' : 'btn-outline'}}" bindtap="onToggleStatus" data-status="mastered">
+      {{word.status === 'mastered' ? '✅ 已掌握' : '标记掌握'}}
+    </view>
+    <view class="btn btn-outline" bindtap="onRegenerateAudio" style="color: #fa8c16; border-color: #fa8c16;">
+      🔊 {{isRegeneratingAudio ? '生成中...' : (word.audio && word.audio.clozeAudio ? '重新生成音频' : '生成音频')}}
+    </view>
+    <view class="btn btn-danger" bindtap="onDelete">
+      🗑 删除
+    </view>
+    <view class="btn btn-primary" bindtap="onStartListen">
+      🎧 听力训练
+    </view>
+  </view>
+</view>
+
+<view class="empty-state" wx:if="{{!word && !loading}}">
+  <view class="icon">🔍</view>
+  <view class="text">单词不存在或已被删除</view>
+</view>

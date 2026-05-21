@@ -1,0 +1,92 @@
+<!--pages/add-word/add-word.wxml-->
+<view class="container">
+  <!-- 输入区域 -->
+  <view class="input-section">
+    <view class="section-label">输入单词或短语</view>
+    <view class="input-wrapper">
+      <input
+        class="word-input"
+        placeholder="例如：ubiquitous"
+        value="{{inputWord}}"
+        bindinput="onInput"
+        focus="{{true}}"
+        confirm-type="done"
+        bindconfirm="onGenerate"
+      />
+    </view>
+    <view
+      class="btn btn-primary btn-block btn-lg {{!inputWord || isGenerating ? 'btn-disabled' : ''}}"
+      bindtap="onGenerate"
+    >
+      {{isGenerating ? '🎨 正在生成学习内容...' : '🤖 生成学习内容'}}
+    </view>
+    <view class="error-msg" wx:if="{{errorMsg}}">
+      ⚠️ {{errorMsg}}
+    </view>
+  </view>
+
+  <!-- 生成结果 -->
+  <view class="result-section" wx:if="{{generatedContent}}">
+    <view class="section-header">
+      <text class="section-title">📖 {{inputWord}}</text>
+      <view class="difficulty-badge" wx:if="{{generatedContent.difficulty}}">
+        <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this"
+          class="star {{item <= generatedContent.difficulty ? 'active' : ''}}">★</text>
+        <text class="diff-text">{{difficultyLabels[generatedContent.difficulty]}}</text>
+      </view>
+    </view>
+
+    <!-- 英文释义 -->
+    <view class="preview-card" wx:if="{{generatedContent.shortDefinition}}">
+      <view class="preview-label">📖 英文释义</view>
+      <view class="preview-text definition">{{generatedContent.shortDefinition}}</view>
+    </view>
+
+    <!-- 中文提示 -->
+    <view class="preview-card" wx:if="{{generatedContent.chineseHint}}">
+      <view class="preview-label">💡 中文提示</view>
+      <view class="preview-text">{{generatedContent.chineseHint}}</view>
+    </view>
+
+    <!-- 例句 -->
+    <view class="preview-card" wx:if="{{generatedContent.examples && generatedContent.examples.length > 0}}">
+      <view class="preview-label">📝 例句</view>
+      <view class="preview-text" wx:for="{{generatedContent.examples}}" wx:key="*this" wx:for-item="ex">
+        • {{ex}}
+      </view>
+    </view>
+
+    <!-- 挖空例句 -->
+    <view class="preview-card" wx:if="{{generatedContent.clozeExample}}">
+      <view class="preview-label">🎧 挖空例句</view>
+      <view class="preview-text cloze">{{generatedContent.clozeExample}}</view>
+    </view>
+
+    <!-- 搭配 -->
+    <view class="preview-card" wx:if="{{generatedContent.collocations && generatedContent.collocations.length > 0}}">
+      <view class="preview-label">🔗 常见搭配</view>
+      <view class="preview-text" wx:for="{{generatedContent.collocations}}" wx:key="*this" wx:for-item="col">
+        • {{col}}
+      </view>
+    </view>
+
+    <!-- 记忆提示 -->
+    <view class="preview-card" wx:if="{{generatedContent.memoryTip}}">
+      <view class="preview-label">🧠 记忆提示</view>
+      <view class="preview-text">{{generatedContent.memoryTip}}</view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="action-section">
+      <view class="btn btn-outline" bindtap="onRegenerate" wx:if="{{!isGenerating}}">
+        重新生成
+      </view>
+      <view class="btn btn-primary btn-block" bindtap="onSave">
+        💾 保存生词
+      </view>
+      <view class="btn btn-primary btn-block" bindtap="onSaveAndListen" wx:if="{{!isGenerating}}">
+        🎧 保存并开始听力
+      </view>
+    </view>
+  </view>
+</view>

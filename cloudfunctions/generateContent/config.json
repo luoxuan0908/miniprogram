@@ -1,0 +1,6 @@
+{
+  "timeout": 30,
+  "envVariables": {
+    "DEEPSEEK_API_KEY": "sk-488d027988c9454ab1201d881951398c"
+  }
+}

@@ -1,0 +1,74 @@
+<!--pages/resources/resources.wxml-->
+<view class="resources-page">
+  <view class="toolbar">
+    <view class="search-box">
+      <text class="search-icon">⌕</text>
+      <input
+        class="search-input"
+        placeholder="搜索资源"
+        value="{{searchQuery}}"
+        bindinput="onSearch"
+        confirm-type="search"
+        placeholder-class="search-placeholder"
+      />
+      <view wx:if="{{searchQuery}}" class="clear-btn" bindtap="onClearSearch">×</view>
+    </view>
+    <view class="add-btn" bindtap="onOpenAddModal">
+      <text class="add-icon">＋</text>
+      <text>添加资源</text>
+    </view>
+  </view>
+
+  <view class="resource-grid" wx:if="{{resources.length > 0}}">
+    <view class="resource-card" wx:for="{{resources}}" wx:key="id">
+      <view class="resource-hit" bindtap="onOpenResource" data-id="{{item.id}}">
+        <view class="blue-strip"></view>
+        <view class="card-menu" catchtap="onDeleteResource" data-id="{{item.id}}">⋮</view>
+        <view class="card-title">{{item.title}}</view>
+        <view class="card-meta">{{item.segments.length}} 段</view>
+        <view class="format-badge">{{item.fileType || 'html'}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{resources.length === 0}}">
+    <view class="empty-title">{{searchQuery ? '无匹配资源' : '暂无文档'}}</view>
+    <view class="empty-desc">导入网址或本地 HTML/TXT 文件，开始阅读与跟读。</view>
+    <view class="add-btn empty-action" bindtap="onOpenAddModal">
+      <text class="add-icon">＋</text>
+      <text>添加资源</text>
+    </view>
+  </view>
+
+  <view class="modal-mask" wx:if="{{showAddModal}}" catchtap="onCloseAddModal">
+    <view class="modal-card" catchtap="noop">
+      <view class="modal-close" bindtap="onCloseAddModal">×</view>
+      <view class="modal-title">添加资源</view>
+      <view class="modal-subtitle">从网址或本地导入</view>
+
+      <view class="modal-form">
+        <input
+          class="url-input"
+          placeholder="https://"
+          value="{{resourceUrl}}"
+          bindinput="onUrlInput"
+          placeholder-class="url-placeholder"
+          disabled="{{selectedFile !== null}}"
+        />
+        <view class="file-btn" bindtap="onChooseFile">本地文件</view>
+      </view>
+
+      <view class="selected-file" wx:if="{{selectedFile}}">
+        <text>{{selectedFile.name}}</text>
+        <text class="file-type">{{selectedFile.fileType}}</text>
+      </view>
+
+      <view class="modal-actions">
+        <view class="cancel-btn" bindtap="onCloseAddModal">取消</view>
+        <view class="confirm-btn {{isImporting ? 'disabled' : ''}}" bindtap="onConfirmAdd">
+          {{isImporting ? '导入中' : '确认'}}
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

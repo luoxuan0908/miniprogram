@@ -1,0 +1,87 @@
+/* components/word-card/word-card.wxss */
+.word-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+  transition: transform 0.15s;
+}
+
+.word-card:active {
+  transform: scale(0.98);
+}
+
+.card-main {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.word-text {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #111217;
+}
+
+.word-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+}
+
+.tag-new {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.tag-learning {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+
+.tag-mastered {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.review-info {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  font-size: 22rpx;
+  color: #999;
+}
+
+.review-icon {
+  font-size: 22rpx;
+}
+
+.difficulty-stars {
+  margin-left: auto;
+  display: flex;
+  gap: 2rpx;
+}
+
+.star {
+  font-size: 24rpx;
+  color: #e0e0e0;
+}
+
+.star.active {
+  color: #faad14;
+}

@@ -1,0 +1,282 @@
+/* pages/word-detail/word-detail.wxss */
+.word-header {
+  background: #ffffff;
+  border: 1rpx solid #dfe3e8;
+  border-radius: 10rpx;
+  padding: 40rpx 32rpx;
+  margin-bottom: 24rpx;
+  color: #111217;
+}
+
+.word-title-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.word-name {
+  font-size: 48rpx;
+  font-weight: 800;
+}
+
+.tag {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.tag-new {
+  background: rgba(24, 144, 255, 0.3);
+  color: #69c0ff;
+}
+
+.tag-learning {
+  background: rgba(250, 140, 22, 0.3);
+  color: #ffc069;
+}
+
+.tag-mastered {
+  background: rgba(82, 196, 26, 0.3);
+  color: #95de64;
+}
+
+.word-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.difficulty {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.star {
+  font-size: 28rpx;
+  color: #d5d8de;
+}
+
+.star.active {
+  color: #faad14;
+}
+
+.diff-label {
+  font-size: 22rpx;
+  color: #6f7582;
+  margin-left: 8rpx;
+}
+
+.audio-btn {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #111217;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32rpx;
+}
+
+/* 可折叠卡片 */
+.collapse-card {
+  background: #fff;
+  border-radius: 16rpx;
+  margin-bottom: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.collapse-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx;
+}
+
+.collapse-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.arrow {
+  font-size: 22rpx;
+  color: #999;
+  transition: transform 0.3s;
+}
+
+.arrow.expanded {
+  transform: rotate(180deg);
+}
+
+.collapse-body {
+  padding: 0 24rpx 24rpx;
+}
+
+.info-row {
+  margin-bottom: 16rpx;
+}
+
+.info-label {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+  display: block;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.6;
+}
+
+.info-value.emphasis {
+  font-style: italic;
+  color: #555;
+}
+
+.info-value.cloze {
+  color: #111217;
+  font-weight: 500;
+  background: #fff2f0;
+  padding: 8rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+/* 例句 */
+.example-item {
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.example-item:last-child {
+  border-bottom: none;
+}
+
+.example-text {
+  font-size: 28rpx;
+  color: #444;
+  line-height: 1.6;
+}
+
+/* 标签列表 */
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.collocation-tag {
+  padding: 8rpx 20rpx;
+  background: #f0f5ff;
+  color: #2f54eb;
+  border-radius: 8rpx;
+  font-size: 26rpx;
+}
+
+.syn-tag {
+  padding: 6rpx 16rpx;
+  background: #f6ffed;
+  color: #52c41a;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+
+.ant-tag {
+  padding: 6rpx 16rpx;
+  background: #fff2f0;
+  color: #ff4d4f;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+
+/* 记忆提示 */
+.memory-tip-box {
+  background: #fffbe6;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  font-size: 26rpx;
+  color: #8c6d00;
+  line-height: 1.6;
+}
+
+/* 学习统计 */
+.stats-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin: 24rpx 0;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20rpx;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #111217;
+  display: block;
+}
+
+.stat-desc {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.review-progress {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8rpx;
+  background: #f0f0f0;
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #111217;
+  border-radius: 4rpx;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  font-size: 22rpx;
+  color: #999;
+  white-space: nowrap;
+}
+
+/* 底部操作 */
+.bottom-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 24rpx 0 40rpx;
+}
+
+.bottom-actions .btn {
+  flex: 1;
+  height: 80rpx;
+  font-size: 28rpx;
+}

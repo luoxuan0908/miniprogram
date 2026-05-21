@@ -1,0 +1,6 @@
+{
+  "timeout": 30,
+  "envVariables": {
+    "DASHSCOPE_API_KEY": "sk-99b5bbee21c94c2b8b661c2a7f97a3bc"
+  }
+}

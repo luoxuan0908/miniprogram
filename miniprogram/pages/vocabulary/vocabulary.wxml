@@ -1,0 +1,63 @@
+<!--pages/vocabulary/vocabulary.wxml-->
+<view class="vocab-page">
+  <view class="topbar">
+    <view>
+      <view class="page-title">生词本</view>
+      <view class="page-subtitle">已保存 {{totalCount}} 个生词</view>
+    </view>
+    <view class="top-actions">
+      <view class="icon-btn" bindtap="onSync">↻</view>
+      <view class="primary-btn" bindtap="onAddWord">添加生词</view>
+    </view>
+  </view>
+
+  <view class="search-row">
+    <text class="search-icon">⌕</text>
+    <input
+      class="search-input"
+      placeholder="搜索生词"
+      value="{{searchQuery}}"
+      bindinput="onSearch"
+      confirm-type="search"
+      placeholder-class="search-placeholder"
+    />
+    <view wx:if="{{searchQuery}}" class="clear-btn" bindtap="onClearSearch">×</view>
+  </view>
+
+  <view class="filter-row">
+    <view class="filter {{activeTab === 'all' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="all">全部 {{tabCounts.all || 0}}</view>
+    <view class="filter {{activeTab === 'new' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="new">新词 {{tabCounts.new || 0}}</view>
+    <view class="filter {{activeTab === 'learning' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="learning">学习中 {{tabCounts.learning || 0}}</view>
+    <view class="filter {{activeTab === 'mastered' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="mastered">已掌握 {{tabCounts.mastered || 0}}</view>
+  </view>
+
+  <view class="practice-banner" wx:if="{{totalCount > 0}}" bindtap="onStartListen">
+    <view>
+      <view class="banner-title">挖空听力</view>
+      <view class="banner-subtitle">按复习计划进行听力练习</view>
+    </view>
+    <view class="banner-play">▶</view>
+  </view>
+
+  <view class="word-list" wx:if="{{words.length > 0}}">
+    <view class="word-card" wx:for="{{words}}" wx:key="id">
+      <view class="word-main" bindtap="onWordTap" data-id="{{item.id}}">
+        <view class="word-row">
+          <text class="word-name">{{item.word}}</text>
+          <text class="status-badge badge-{{item.status}}">
+            {{item.status === 'new' ? '新词' : item.status === 'learning' ? '学习中' : '已掌握'}}
+          </text>
+        </view>
+        <view class="word-hint" wx:if="{{item.content.chineseHint}}">{{item.content.chineseHint}}</view>
+        <view class="word-def" wx:if="{{item.content.shortDefinition}}">{{item.content.shortDefinition}}</view>
+      </view>
+      <view class="word-action" bindtap="onQuickMaster" data-id="{{item.id}}" wx:if="{{item.status !== 'mastered'}}">✓</view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{words.length === 0 && !loading}}">
+    <view class="empty-title">{{searchQuery ? '无匹配生词' : '暂无生词'}}</view>
+    <view class="empty-desc">添加生词，保持复习计划持续进行。</view>
+    <view class="primary-btn empty-action" bindtap="onAddWord">添加生词</view>
+  </view>
+</view>

@@ -1,0 +1,62 @@
+<!--pages/resource-detail/resource-detail.wxml-->
+<view class="reader-page {{showPlayerPanel ? 'player-open' : ''}}" wx:if="{{resource}}">
+  <view class="reader-shell">
+    <view class="reader-top">
+      <view class="tool-btn">⚙</view>
+      <view class="doc-title">{{resource.title}}</view>
+      <view class="tool-btn">⋮</view>
+    </view>
+
+    <scroll-view class="segment-scroll" scroll-y>
+      <view
+        class="segment {{activeSegmentIndex === item.index ? 'active' : ''}}"
+        wx:for="{{resource.segments}}"
+        wx:key="index"
+      >
+        <view class="segment-tools">
+          <text class="segment-no">#{{item.index}}</text>
+          <text class="mini-play" bindtap="onPlaySegment" data-index="{{item.index}}">
+            {{isPlaying && playingSegmentIndex === item.index ? 'Ⅱ' : '▷'}}
+          </text>
+          <text class="translate-btn" bindtap="onToggleTranslation" data-index="{{item.index}}">文A</text>
+          <text class="audio-status" wx:if="{{item.audioStatus === 'generating'}}">生成中</text>
+        </view>
+
+        <view class="segment-text" bindtap="onPlaySegment" data-index="{{item.index}}">
+          {{item.text}}
+        </view>
+
+        <view class="translation" wx:if="{{item.translationOpen && item.isTranslating && !item.translation}}">
+          <text class="translating-hint">翻译中...</text>
+        </view>
+        <view class="translation" wx:if="{{item.translationOpen && item.translation}}">
+          {{item.translation}}
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="player-panel" wx:if="{{showPlayerPanel}}">
+    <view class="time-label">{{timeLabel}}</view>
+    <view class="wave-row">
+      <view class="play-circle" bindtap="onToggleCurrentPlayback">
+        {{isPlaying ? 'Ⅱ' : '▶'}}
+      </view>
+      <view class="wave-track">
+        <view class="wave-bars">
+          <view wx:for="{{waveBars}}" wx:key="index" class="bar bar-{{item}}"></view>
+        </view>
+        <view class="progress-line" style="width: {{progressPercent}}%"></view>
+      </view>
+    </view>
+    <view class="player-actions">
+      <view class="square-btn" bindtap="onRestartCurrent">↻</view>
+      <view class="square-btn" bindtap="onClosePlayer">×</view>
+    </view>
+  </view>
+</view>
+
+<view class="empty-state" wx:if="{{!loading && !resource}}">
+  <view class="empty-title">文档不存在</view>
+  <view class="empty-desc">返回文档列表，打开其他资源。</view>
+</view>

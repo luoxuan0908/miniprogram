@@ -1,0 +1,82 @@
+/**
+ * format.wxs - WXML 模板格式化工具
+ * WXS 是微信小程序在 WXML 中可用的脚本模块
+ * 注意：WXS 语法是 JavaScript 子集，不支持 ES6+ 特性
+ */
+
+/**
+ * 格式化复习时间
+ * @param {number} timestamp - 毫秒时间戳
+ * @param {number} now - 当前毫秒时间戳
+ * @returns {string}
+ */
+function formatReviewTime(timestamp, now) {
+  if (!timestamp || timestamp >= 9999999999999) return '已掌握'
+  if (timestamp <= now) return '待复习'
+
+  var diff = timestamp - now
+  var hours = Math.ceil(diff / (1000 * 60 * 60))
+  if (hours < 24) return hours + '小时后'
+  return Math.ceil(hours / 24) + '天后'
+}
+
+/**
+ * 格式化相对时间
+ * @param {number} timestamp - 毫秒时间戳
+ * @param {number} now - 当前毫秒时间戳
+ * @returns {string}
+ */
+function formatRelativeTime(timestamp, now) {
+  if (!timestamp) return ''
+
+  var diff = now - timestamp
+
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前'
+  if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'
+  if (diff < 604800000) return Math.floor(diff / 86400000) + '天前'
+
+  var date = getDate(timestamp)
+  return (date.getMonth() + 1) + '月' + date.getDate() + '日'
+}
+
+/**
+ * 计算正确率百分比
+ * @param {number} correct - 正确次数
+ * @param {number} total - 总次数
+ * @returns {string}
+ */
+function accuracyPercent(correct, total) {
+  if (!total || total === 0) return '0'
+  return Math.round(correct / total * 100) + ''
+}
+
+/**
+ * 格式化单词状态
+ * @param {string} status - 'new' | 'learning' | 'mastered'
+ * @returns {string}
+ */
+function statusLabel(status) {
+  if (status === 'new') return '新词'
+  if (status === 'learning') return '学习中'
+  if (status === 'mastered') return '已掌握'
+  return ''
+}
+
+/**
+ * 判断复习是否到期
+ * @param {number} nextReview - 下次复习时间戳
+ * @param {number} now - 当前时间戳
+ * @returns {boolean}
+ */
+function isDue(nextReview, now) {
+  return nextReview <= now && nextReview < 9999999999999
+}
+
+module.exports = {
+  formatReviewTime: formatReviewTime,
+  formatRelativeTime: formatRelativeTime,
+  accuracyPercent: accuracyPercent,
+  statusLabel: statusLabel,
+  isDue: isDue
+}

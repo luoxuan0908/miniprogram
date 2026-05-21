@@ -1,0 +1,21 @@
+<!--components/word-card/word-card.wxml-->
+<view class="word-card" bindtap="onTap">
+  <view class="card-main">
+    <view class="word-text">{{word.word}}</view>
+    <view class="word-hint" wx:if="{{word.content.chineseHint}}">
+      {{word.content.chineseHint}}
+    </view>
+  </view>
+  <view class="card-footer">
+    <view class="tag tag-{{word.status}}">
+      {{statusLabel}}
+    </view>
+    <view class="review-info" wx:if="{{showReviewInfo && word.stats.nextReview < 9999999999999}}">
+      <text class="review-icon">⏰</text>
+      <text class="review-time">{{reviewText}}</text>
+    </view>
+    <view class="difficulty-stars" wx:if="{{word.content.difficulty}}">
+      <text wx:for="{{stars}}" wx:key="*this" class="{{item <= word.content.difficulty ? 'star active' : 'star'}}">★</text>
+    </view>
+  </view>
+</view>

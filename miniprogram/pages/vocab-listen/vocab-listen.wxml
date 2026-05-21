@@ -1,0 +1,78 @@
+<wxs src="../../utils/format.wxs" module="fmt" />
+<!--pages/vocab-listen/vocab-listen.wxml-->
+<view class="container">
+  <view class="session-active" wx:if="{{!isSessionComplete && queue.length > 0}}">
+    <view class="progress-section">
+      <view class="progress-bar">
+        <view class="progress-fill" style="width: {{(currentIndex / queue.length) * 100}}%"></view>
+      </view>
+      <view class="progress-text">进度 {{currentIndex}} / {{queue.length}}</view>
+    </view>
+
+    <view class="word-context" wx:if="{{currentWord}}">
+      <view class="context-badge">Lv.{{currentWord.reviewLevel}}</view>
+      <view class="context-stats" wx:if="{{currentWord.stats.totalAttempts > 0}}">
+        正确率 {{fmt.accuracyPercent(currentWord.stats.correctCount, currentWord.stats.totalAttempts)}}%
+      </view>
+    </view>
+
+    <cloze-player
+      id="clozePlayer"
+      wx:if="{{currentWord && currentWord.audio.clozeAudio}}"
+      word="{{currentWord.word}}"
+      clozeAudio="{{currentWord.audio.clozeAudio}}"
+      fullAudio="{{currentWord.audio.fullAudio}}"
+      clozeExample="{{currentWord.content.clozeExample}}"
+      fullExample="{{currentWord.content.examples[0]}}"
+      chineseHint="{{currentWord.content.chineseHint}}"
+      autoPlay="{{true}}"
+      bind:result="onResult"
+    />
+
+    <view class="no-audio-tip" wx:if="{{currentWord && !currentWord.audio.clozeAudio}}">
+      <view class="no-audio-title">{{currentWord.word}}</view>
+      <view class="no-audio-text">该单词音频尚未生成</view>
+      <view class="no-audio-actions">
+        <view class="btn btn-primary btn-sm" bindtap="onGenerateAudio" wx:if="{{!isGeneratingAudio}}">生成音频</view>
+        <view class="btn btn-outline btn-sm" bindtap="onSkip" wx:if="{{!isGeneratingAudio}}">跳过</view>
+        <view class="generating-text" wx:if="{{isGeneratingAudio}}">生成中...</view>
+      </view>
+    </view>
+
+    <view class="skip-section">
+      <view class="btn btn-outline btn-sm" bindtap="onSkip">跳过该词</view>
+    </view>
+  </view>
+
+  <view class="session-complete" wx:if="{{isSessionComplete}}">
+    <view class="complete-title">本轮完成</view>
+    <view class="complete-stats">
+      <view class="complete-stat">
+        <text class="stat-num correct">{{sessionStats.correct}}</text>
+        <text class="stat-label">正确</text>
+      </view>
+      <view class="complete-stat">
+        <text class="stat-num incorrect">{{sessionStats.incorrect}}</text>
+        <text class="stat-label">错误</text>
+      </view>
+      <view class="complete-stat">
+        <text class="stat-num">{{accuracy}}%</text>
+        <text class="stat-label">正确率</text>
+      </view>
+    </view>
+    <view class="complete-actions">
+      <view class="btn btn-primary btn-block" bindtap="onRestart">再来一轮</view>
+      <view class="btn btn-outline btn-block" bindtap="onGoReview">查看统计</view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!isSessionComplete && queue.length === 0 && !loading}}">
+    <view class="empty-title">没有待复习生词</view>
+    <view class="empty-desc">添加生词或在复习计划就绪后再来。</view>
+    <view class="btn btn-primary" bindtap="onAddWord">添加生词</view>
+  </view>
+
+  <view class="loading-container" wx:if="{{loading}}">
+    <view class="loading-text">准备中...</view>
+  </view>
+</view>

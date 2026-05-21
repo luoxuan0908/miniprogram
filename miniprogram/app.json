@@ -1,0 +1,52 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/resources/resources",
+    "pages/resource-detail/resource-detail",
+    "pages/vocabulary/vocabulary",
+    "pages/add-word/add-word",
+    "pages/word-detail/word-detail",
+    "pages/vocab-listen/vocab-listen",
+    "pages/listen/listen",
+    "pages/review/review"
+  ],
+  "window": {
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "Study Hub",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#ffffff"
+  },
+  "tabBar": {
+    "color": "#8b8f99",
+    "selectedColor": "#111217",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/tab-words.png",
+        "selectedIconPath": "images/tab-words-active.png"
+      },
+      {
+        "pagePath": "pages/listen/listen",
+        "text": "练习",
+        "iconPath": "images/tab-listen.png",
+        "selectedIconPath": "images/tab-listen-active.png"
+      },
+      {
+        "pagePath": "pages/review/review",
+        "text": "我的",
+        "iconPath": "images/tab-review.png",
+        "selectedIconPath": "images/tab-review-active.png"
+      }
+    ]
+  },
+  "usingComponents": {
+    "word-card": "/components/word-card/word-card",
+    "cloze-player": "/components/cloze-player/cloze-player"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

@@ -1,0 +1,44 @@
+<!--pages/index/index.wxml-->
+<view class="home-page">
+  <view class="greeting">
+    <view class="greeting-title">早上好</view>
+    <view class="greeting-subtitle">今天想学什么？</view>
+  </view>
+
+  <view class="module-grid">
+    <view
+      class="module-card {{!item.enabled ? 'module-disabled' : ''}}"
+      wx:for="{{modules}}"
+      wx:key="key"
+      bindtap="onModuleTap"
+      data-key="{{item.key}}"
+    >
+      <view class="module-icon">{{item.icon}}</view>
+      <view class="module-title">{{item.title}}</view>
+      <view class="module-desc">{{item.desc}}</view>
+    </view>
+  </view>
+
+  <view class="section-head">
+    <text>最近学习</text>
+  </view>
+  <view class="recent-list" wx:if="{{recentResources.length > 0 || recentWords.length > 0}}">
+    <view class="recent-row" wx:for="{{recentResources}}" wx:key="id" bindtap="onOpenResource" data-id="{{item.id}}">
+      <view class="recent-copy">
+        <view class="recent-title">{{item.title}}</view>
+        <view class="recent-meta">文档</view>
+      </view>
+      <view class="recent-arrow">→</view>
+    </view>
+    <view class="recent-row" wx:for="{{recentWords}}" wx:key="id" bindtap="onOpenWord" data-id="{{item.id}}">
+      <view class="recent-copy">
+        <view class="recent-title">{{item.word}}</view>
+        <view class="recent-meta">生词</view>
+      </view>
+      <view class="recent-arrow">→</view>
+    </view>
+  </view>
+  <view class="recent-empty" wx:else bindtap="onAddResource">
+    导入你的第一篇文档或添加生词开始学习
+  </view>
+</view>

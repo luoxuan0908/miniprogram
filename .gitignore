@@ -1,0 +1,23 @@
+# 微信开发者工具
+project.private.config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 云函数依赖（部署时微信会自动安装）
+cloudfunctions/*/node_modules/
+
+# 微信开发者工具缓存
+.miniprogram/
+
+# WorkBuddy / omx 工具目录
+.workbuddy/
+.omx/
+
+# 编辑器
+.vscode/
+.idea/
+
+# 日志
+*.log

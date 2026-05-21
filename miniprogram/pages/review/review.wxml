@@ -1,0 +1,73 @@
+<!--pages/review/review.wxml-->
+<view class="me-page">
+  <view class="stats-grid">
+    <view class="stat-card" bindtap="onOpenDocuments">
+      <view class="stat-icon black">▤</view>
+      <view class="stat-label">文档</view>
+      <view class="stat-value">{{resourceStats.documents}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-icon blue">◌</view>
+      <view class="stat-label">段落</view>
+      <view class="stat-value">{{resourceStats.segments}}</view>
+    </view>
+    <view class="stat-card" bindtap="onOpenVocabulary">
+      <view class="stat-icon black">▣</view>
+      <view class="stat-label">总词汇</view>
+      <view class="stat-value">{{vocabStats.total}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-icon green">✓</view>
+      <view class="stat-label">已掌握</view>
+      <view class="stat-value">{{vocabStats.mastered}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-icon amber">↗</view>
+      <view class="stat-label">学习中</view>
+      <view class="stat-value">{{vocabStats.learning}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-icon red">◷</view>
+      <view class="stat-label">今日待复习</view>
+      <view class="stat-value">{{vocabStats.due}}</view>
+    </view>
+  </view>
+
+  <view class="section-title">
+    <text class="section-icon">⚙</text>
+    <text>偏好设置</text>
+  </view>
+
+  <view class="prefs-panel">
+    <view class="pref-label">语速</view>
+    <slider
+      min="70"
+      max="130"
+      value="{{ttsSpeed}}"
+      activeColor="#000000"
+      backgroundColor="#c9cbd0"
+      block-color="#000000"
+      bindchange="onTtsSpeedChange"
+    />
+    <view class="speed-value">{{ttsSpeedLabel}}</view>
+
+    <view class="pref-label voice-label">发音人</view>
+    <picker mode="selector" range="{{voices}}" value="{{voiceIndex}}" bindchange="onVoiceChange">
+      <view class="picker-row">
+        <text>{{selectedVoice}}</text>
+        <text>⌄</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="settings-list">
+    <view class="settings-row" bindtap="onExport">
+      <text>导出学习数据</text>
+      <text class="settings-arrow">→</text>
+    </view>
+    <view class="settings-row" bindtap="onClearAudioCache">
+      <text>清除文档音频缓存</text>
+      <text class="settings-meta">{{resourceStats.cachedAudio}}</text>
+    </view>
+  </view>
+</view>

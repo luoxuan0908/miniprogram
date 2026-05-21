@@ -1,0 +1,162 @@
+/* pages/vocab-listen/vocab-listen.wxss */
+.container {
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 32rpx;
+  box-sizing: border-box;
+}
+
+.progress-section {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8rpx;
+  background: #e8e8e8;
+  border-radius: 4rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #111217;
+  border-radius: 4rpx;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 24rpx;
+  color: #8b8f99;
+  white-space: nowrap;
+}
+
+.word-context {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+  margin-bottom: 20rpx;
+}
+
+.context-badge {
+  font-size: 22rpx;
+  color: #111217;
+  background: #f1f2f4;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+}
+
+.context-stats {
+  font-size: 22rpx;
+  color: #8b8f99;
+}
+
+.skip-section {
+  display: flex;
+  justify-content: center;
+  margin-top: 40rpx;
+}
+
+.session-complete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 80rpx 20rpx;
+}
+
+.complete-title {
+  font-size: 40rpx;
+  font-weight: 850;
+  color: #111217;
+  margin-bottom: 42rpx;
+}
+
+.complete-stats {
+  display: flex;
+  gap: 40rpx;
+  margin-bottom: 34rpx;
+}
+
+.complete-stat {
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 54rpx;
+  font-weight: 850;
+  display: block;
+  color: #111217;
+}
+
+.stat-num.correct {
+  color: #159947;
+}
+
+.stat-num.incorrect {
+  color: #e1242f;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: #8b8f99;
+  margin-top: 4rpx;
+}
+
+.complete-actions {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.no-audio-tip {
+  border: 1rpx solid #dfe3e8;
+  border-radius: 12rpx;
+  padding: 42rpx 28rpx;
+  text-align: center;
+}
+
+.no-audio-title {
+  color: #111217;
+  font-size: 36rpx;
+  font-weight: 850;
+}
+
+.no-audio-text {
+  color: #6f7582;
+  font-size: 26rpx;
+  margin: 14rpx 0 24rpx;
+}
+
+.no-audio-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16rpx;
+}
+
+.empty-state {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.empty-title {
+  color: #111217;
+  font-size: 38rpx;
+  font-weight: 850;
+}
+
+.empty-desc {
+  margin: 14rpx 0 28rpx;
+  color: #6f7582;
+  font-size: 26rpx;
+  line-height: 1.5;
+}
