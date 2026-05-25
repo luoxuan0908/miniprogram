@@ -1,0 +1,308 @@
+/* pages/course-detail/course-detail.wxss */
+.detail-page {
+  height: 100vh;
+  background: #ffffff;
+  padding: 32rpx 32rpx 0;
+  box-sizing: border-box;
+}
+
+.course-info {
+  margin-bottom: 28rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #f0f1f4;
+}
+
+.course-type-badge {
+  display: inline-block;
+  background: #eaf3ff;
+  color: #2675d9;
+  font-size: 21rpx;
+  font-weight: 700;
+  padding: 5rpx 14rpx;
+  border-radius: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.course-title {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #111217;
+  line-height: 1.35;
+}
+
+.course-subtitle {
+  margin-top: 4rpx;
+  color: #6f7582;
+  font-size: 24rpx;
+  font-style: italic;
+}
+
+.course-stats {
+  margin-top: 10rpx;
+  color: #8b8f99;
+  font-size: 23rpx;
+}
+
+.progress-bar-lg {
+  margin-top: 14rpx;
+  height: 10rpx;
+  background: #f0f1f4;
+  border-radius: 5rpx;
+  overflow: hidden;
+}
+
+.progress-bar-lg .progress-fill {
+  height: 100%;
+  background: #111217;
+  border-radius: 5rpx;
+  transition: width 0.3s ease;
+}
+
+.search-row {
+  height: 86rpx;
+  border: 1rpx solid #e3e5ea;
+  border-radius: 14rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 22rpx;
+  margin-bottom: 20rpx;
+}
+
+.search-icon {
+  color: #8b8f99;
+  font-size: 30rpx;
+  margin-right: 12rpx;
+}
+
+.search-input {
+  flex: 1;
+  height: 86rpx;
+  font-size: 30rpx;
+  color: #111217;
+}
+
+.search-placeholder {
+  color: #9da1aa;
+}
+
+.clear-btn {
+  width: 46rpx;
+  height: 46rpx;
+  border-radius: 50%;
+  background: #f0f1f4;
+  color: #727780;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+}
+
+.filter-row {
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+  margin-bottom: 24rpx;
+}
+
+.filter {
+  flex-shrink: 0;
+  padding: 14rpx 22rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #e3e5ea;
+  color: #727780;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.filter.active {
+  background: #111217;
+  border-color: #111217;
+  color: #ffffff;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.item-card {
+  border: 1rpx solid #e7e8ec;
+  border-radius: 14rpx;
+  padding: 22rpx 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.item-index {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 10rpx;
+  background: #f4f5f7;
+  color: #6f7582;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22rpx;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 800;
+  color: #111217;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-badge {
+  flex-shrink: 0;
+  font-size: 20rpx;
+  font-weight: 700;
+  padding: 4rpx 10rpx;
+  border-radius: 6rpx;
+}
+
+.badge-new {
+  background: #f4f5f7;
+  color: #8b8f99;
+}
+
+.badge-learning {
+  background: #fff4d8;
+  color: #a96a00;
+}
+
+.badge-mastered {
+  background: #eaf8ef;
+  color: #168246;
+}
+
+.item-def {
+  margin-top: 6rpx;
+  color: #727780;
+  font-size: 24rpx;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-arrow {
+  color: #c5c7cc;
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+
+.load-more {
+  text-align: center;
+  padding: 28rpx;
+  color: #727780;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+/* 底部加载状态 */
+.bottom-status {
+  padding: 20rpx 24rpx 60rpx;
+  text-align: center;
+}
+
+.bottom-status .loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  padding: 0;
+  color: #8b8f99;
+  font-size: 26rpx;
+}
+
+.loading-spinner {
+  width: 28rpx;
+  height: 28rpx;
+  border: 3rpx solid #e3e5ea;
+  border-top-color: #8b8f99;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.no-more {
+  color: #c5c7cc;
+  font-size: 24rpx;
+}
+
+/* 章节选择器 */
+.section-tabs {
+  display: flex;
+  gap: 12rpx;
+  overflow-x: auto;
+  margin-bottom: 20rpx;
+  padding-bottom: 8rpx;
+  -webkit-overflow-scrolling: touch;
+}
+
+.section-tab {
+  flex-shrink: 0;
+  padding: 12rpx 20rpx;
+  border-radius: 10rpx;
+  border: 1rpx solid #e3e5ea;
+  color: #727780;
+  font-size: 23rpx;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.section-tab.active {
+  background: #111217;
+  border-color: #111217;
+  color: #ffffff;
+}
+
+/* 条目章节提示 */
+.item-section-hint {
+  margin-top: 4rpx;
+  color: #9da1aa;
+  font-size: 21rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty-state,
+.loading-state {
+  padding: 120rpx 24rpx;
+  text-align: center;
+}
+
+.empty-title {
+  color: #111217;
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.loading-state {
+  color: #8b8f99;
+  font-size: 26rpx;
+}

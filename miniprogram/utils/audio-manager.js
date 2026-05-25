@@ -3,7 +3,7 @@
  * 基于 wx.createInnerAudioContext 封装，支持播放/暂停/停止/预加载
  */
 
-const userStorage = require('./user-storage')
+const ttsPreferences = require('./tts-preferences')
 
 let audioContext = null
 let currentFileID = ''
@@ -17,8 +17,11 @@ let pendingPlayReject = null
 let pendingPlayTimer = null
 let pendingFailTimer = null
 let playRequestId = 0
+let sourcePlayId = 0
 let suppressNextStopEvent = false
+let activeFallbackSources = []
 const tempFileCache = {}
+const AUDIO_EXT_RE = /\.(mp3|aac|m4a|wav)(\?|#|$)/i
 
 function clearPendingTimers() {
   if (pendingPlayTimer) {
@@ -51,10 +54,24 @@ function rejectPendingPlay(err) {
   reject(err)
 }
 
+function resetActivePlayback() {
+  audioState = 'stopped'
+  currentFileID = ''
+  activeFallbackSources = []
+}
+
 function createInterruptedError() {
   const err = new Error('播放被新的请求打断')
   err.code = 'PLAY_INTERRUPTED'
   return err
+}
+
+function createPlaybackError(err) {
+  if (err instanceof Error) return err
+  const message = (err && (err.errMsg || err.message || err.errCode)) || '播放失败'
+  const error = new Error('播放失败: ' + message)
+  error.originalError = err
+  return error
 }
 
 function configureInnerAudioOption() {
@@ -65,24 +82,40 @@ function configureInnerAudioOption() {
   })
 }
 
-function tryStartPlayback() {
-  if (!audioContext || audioState !== 'loading' || !pendingPlayResolve) return
-
+function safePlay(ctx, sourceId = sourcePlayId) {
   try {
-    audioContext.play()
+    const result = ctx.play()
+    if (result && typeof result.catch === 'function') {
+      result.catch(err => {
+        if (sourceId !== sourcePlayId) return
+        if (!pendingPlayReject) return
+        if (tryPlayFallbackSource(err)) return
+        resetActivePlayback()
+        rejectPendingPlay(createPlaybackError(err))
+      })
+    }
   } catch (err) {
-    rejectPendingPlay(err)
+    if (tryPlayFallbackSource(err)) return
+    resetActivePlayback()
+    rejectPendingPlay(createPlaybackError(err))
   }
 }
 
-function armPlaybackGuards() {
+function tryStartPlayback(sourceId = sourcePlayId) {
+  if (!audioContext || audioState !== 'loading' || !pendingPlayResolve) return
+
+  applyPlaybackRate(audioContext)
+  safePlay(audioContext, sourceId)
+}
+
+function armPlaybackGuards(sourceId = sourcePlayId) {
   clearPendingTimers()
   pendingPlayTimer = setTimeout(() => {
-    tryStartPlayback()
+    tryStartPlayback(sourceId)
   }, 800)
   pendingFailTimer = setTimeout(() => {
-    if (audioState === 'loading') {
-      audioState = 'stopped'
+    if (sourceId === sourcePlayId && audioState === 'loading') {
+      resetActivePlayback()
       rejectPendingPlay(new Error('音频播放启动超时'))
     }
   }, 15000)
@@ -100,17 +133,17 @@ function getAudioContext() {
     // 已在上面创建时设置
 
     audioContext.onEnded(() => {
-      audioState = 'stopped'
-      currentFileID = ''
+      resetActivePlayback()
       if (onEndCallback) onEndCallback()
     })
 
     audioContext.onError((err) => {
+      if (tryPlayFallbackSource(err)) return
+
       console.error('音频播放错误', err)
-      audioState = 'stopped'
-      currentFileID = ''
+      resetActivePlayback()
       if (onErrorCallback) onErrorCallback(err)
-      rejectPendingPlay(new Error('播放失败: ' + (err.errMsg || err.errCode)))
+      rejectPendingPlay(createPlaybackError(err))
     })
 
     audioContext.onTimeUpdate(() => {
@@ -123,6 +156,9 @@ function getAudioContext() {
     })
 
     audioContext.onCanplay(() => {
+      // 在音频加载完成后立即设置语速
+      applyPlaybackRate(audioContext)
+
       if (onCanplayCallback) {
         setTimeout(() => {
           onCanplayCallback({
@@ -139,6 +175,8 @@ function getAudioContext() {
 
     audioContext.onPlay(() => {
       audioState = 'playing'
+      // 播放开始后再次确认语速（部分平台需要 play() 之后才接受 playbackRate）
+      applyPlaybackRate(audioContext)
       resolvePendingPlay()
     })
 
@@ -152,25 +190,165 @@ function getAudioContext() {
         return
       }
       audioState = 'stopped'
+      activeFallbackSources = []
     })
   }
   return audioContext
 }
 
+function normalizeTtsSpeed(value) {
+  return ttsPreferences.normalizeTtsSpeed(value)
+}
+
+function getPreferredTtsSpeed() {
+  return ttsPreferences.getTtsPreferences().ttsSpeed
+}
+
 function applyPlaybackRate(ctx) {
-  const prefs = userStorage.getPreferences()
-  const speed = prefs.ttsSpeed || 100
+  if (!ctx) return
+  const speed = getPreferredTtsSpeed()
   const rate = Math.max(0.5, Math.min(2.0, speed / 100))
-  if (typeof ctx.playbackRate === 'number') {
+  try {
     ctx.playbackRate = rate
+  } catch (e) {
+    // 部分平台可能不支持 playbackRate
   }
+  return rate
+}
+
+function refreshPlaybackRate(speed) {
+  const ctx = audioContext
+  const normalized = normalizeTtsSpeed(speed === undefined ? getPreferredTtsSpeed() : speed)
+  const rate = Math.max(0.5, Math.min(2.0, normalized / 100))
+  if (!ctx) return rate
+
+  try {
+    ctx.playbackRate = rate
+  } catch (e) {
+    // 部分平台可能不支持 playbackRate
+  }
+  return rate
+}
+
+function uniqueSources(sources) {
+  return Array.from(new Set((sources || []).filter(Boolean)))
 }
 
 function setAudioSourceAndPlay(ctx, src) {
+  const sourceId = ++sourcePlayId
   applyPlaybackRate(ctx)
   ctx.src = src
-  armPlaybackGuards()
-  tryStartPlayback()
+  armPlaybackGuards(sourceId)
+  tryStartPlayback(sourceId)
+}
+
+function tryPlayFallbackSource(err) {
+  const ctx = audioContext
+  if (!ctx || !pendingPlayReject || !activeFallbackSources.length) return false
+
+  const nextSource = activeFallbackSources.shift()
+  if (!nextSource) return tryPlayFallbackSource(err)
+
+  audioState = 'loading'
+  setAudioSourceAndPlay(ctx, nextSource)
+  return true
+}
+
+function isCloudFile(fileID) {
+  return typeof fileID === 'string' && fileID.startsWith('cloud://')
+}
+
+function isRemoteUrl(src) {
+  return /^https?:\/\//i.test(src || '')
+}
+
+function isLocalAudioPath(src) {
+  if (!src || isRemoteUrl(src) || isCloudFile(src)) return false
+  return src.startsWith('wxfile://') || src.startsWith('file://') || src.startsWith('/') || src.indexOf('_doc/') !== -1
+}
+
+function needsLocalExtensionFallback(src) {
+  return isLocalAudioPath(src) && !AUDIO_EXT_RE.test(src)
+}
+
+function copyLocalAudioWithExtension(src) {
+  if (!needsLocalExtensionFallback(src)) return Promise.resolve('')
+  if (!wx.getFileSystemManager || !wx.env || !wx.env.USER_DATA_PATH) return Promise.resolve('')
+
+  const fileName = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp3`
+  const destPath = `${wx.env.USER_DATA_PATH}/${fileName}`
+  return new Promise(resolve => {
+    wx.getFileSystemManager().copyFile({
+      srcPath: src,
+      destPath,
+      success: () => resolve(destPath),
+      fail: () => resolve('')
+    })
+  })
+}
+
+function expandLocalAudioSource(src) {
+  return copyLocalAudioWithExtension(src).then(fallback => fallback ? [fallback, src] : [src])
+}
+
+function prepareAudioSources(sources) {
+  return (sources || []).reduce((promise, src) => {
+    return promise.then(list => expandLocalAudioSource(src).then(expanded => list.concat(expanded)))
+  }, Promise.resolve([])).then(uniqueSources)
+}
+
+function getCloudTempFileURL(fileID) {
+  return new Promise(resolve => {
+    wx.cloud.getTempFileURL({
+      fileList: [fileID],
+      success: res => {
+        const file = res.fileList && res.fileList[0]
+        resolve(file && file.tempFileURL ? file.tempFileURL : '')
+      },
+      fail: () => resolve('')
+    })
+  })
+}
+
+function downloadCloudAudioFile(fileID) {
+  if (tempFileCache[fileID]) return Promise.resolve(tempFileCache[fileID])
+
+  return new Promise(resolve => {
+    wx.cloud.downloadFile({
+      fileID,
+      success: res => {
+        if (res.tempFilePath) {
+          tempFileCache[fileID] = res.tempFilePath
+          resolve(res.tempFilePath)
+        } else {
+          resolve('')
+        }
+      },
+      fail: () => resolve('')
+    })
+  })
+}
+
+function resolveCloudAudioSources(fileID) {
+  return Promise.all([
+    getCloudTempFileURL(fileID),
+    downloadCloudAudioFile(fileID)
+  ]).then(([tempUrl, tempFilePath]) => {
+    return prepareAudioSources([tempUrl, tempFilePath])
+  })
+}
+
+function startResolvedSources(ctx, sources) {
+  const candidates = uniqueSources(sources)
+  const primary = candidates[0]
+  if (!primary) {
+    resetActivePlayback()
+    rejectPendingPlay(new Error('音频文件不可用'))
+    return
+  }
+
+  activeFallbackSources = candidates.slice(1)
+  setAudioSourceAndPlay(ctx, primary)
 }
 
 /**
@@ -198,7 +376,7 @@ function playAudio(fileID) {
       pendingPlayReject = reject
       applyPlaybackRate(ctx)
       armPlaybackGuards()
-      ctx.play()
+      safePlay(ctx)
       return
     }
 
@@ -212,55 +390,32 @@ function playAudio(fileID) {
     audioState = 'loading'
     pendingPlayResolve = resolve
     pendingPlayReject = reject
+    activeFallbackSources = []
 
     const isCurrentRequest = () => requestId === playRequestId && currentFileID === fileID && audioState === 'loading'
 
-    // cloud:// 格式需要先转换为临时链接
-    if (fileID.startsWith('cloud://')) {
-      if (tempFileCache[fileID]) {
-        setAudioSourceAndPlay(ctx, tempFileCache[fileID])
-        return
-      }
-
-      wx.cloud.downloadFile({
-        fileID,
-        success: res => {
+    if (isCloudFile(fileID)) {
+      resolveCloudAudioSources(fileID)
+        .then(sources => {
           if (!isCurrentRequest()) return
-
-          if (res.tempFilePath) {
-            tempFileCache[fileID] = res.tempFilePath
-            setAudioSourceAndPlay(ctx, res.tempFilePath)
-          } else {
-            audioState = 'stopped'
-            rejectPendingPlay(new Error('下载音频文件失败'))
-          }
-        },
-        fail: err => {
+          startResolvedSources(ctx, sources)
+        })
+        .catch(err => {
           if (!isCurrentRequest()) return
-
-          wx.cloud.getTempFileURL({
-            fileList: [fileID],
-            success: res => {
-              if (!isCurrentRequest()) return
-
-              if (res.fileList && res.fileList[0] && res.fileList[0].tempFileURL) {
-                setAudioSourceAndPlay(ctx, res.fileList[0].tempFileURL)
-              } else {
-                audioState = 'stopped'
-                rejectPendingPlay(new Error('获取音频临时链接失败'))
-              }
-            },
-            fail: () => {
-              if (!isCurrentRequest()) return
-              audioState = 'stopped'
-              rejectPendingPlay(err)
-            }
-          })
-        }
-      })
+          resetActivePlayback()
+          rejectPendingPlay(createPlaybackError(err))
+        })
     } else {
-      // 直接 URL 或本地临时文件路径
-      setAudioSourceAndPlay(ctx, fileID)
+      prepareAudioSources([fileID])
+        .then(sources => {
+          if (!isCurrentRequest()) return
+          startResolvedSources(ctx, sources)
+        })
+        .catch(err => {
+          if (!isCurrentRequest()) return
+          resetActivePlayback()
+          rejectPendingPlay(createPlaybackError(err))
+        })
     }
   })
 }
@@ -287,8 +442,7 @@ function stopAudio() {
   const ctx = audioContext
   if (ctx) {
     ctx.stop()
-    currentFileID = ''
-    audioState = 'stopped'
+    resetActivePlayback()
     clearPendingPlay()
   }
 }
@@ -366,6 +520,7 @@ function destroyAudio() {
     audioContext = null
     currentFileID = ''
     audioState = 'stopped'
+    activeFallbackSources = []
     onTimeUpdateCallback = null
     onCanplayCallback = null
     clearPendingPlay()
@@ -387,5 +542,6 @@ module.exports = {
   onTimeUpdate,
   onCanplay,
   preloadAudio,
+  refreshPlaybackRate,
   destroyAudio
 }

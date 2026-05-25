@@ -56,17 +56,73 @@ function resourceKey(id) {
   return `${RESOURCE_KEY_PREFIX}${id}`
 }
 
+function normalizeImage(image, index) {
+  const src = typeof image === 'string' ? image : (image && image.src)
+  if (!src) return null
+
+  return {
+    index: (image && image.index) || index + 1,
+    src: String(src).trim(),
+    alt: (image && image.alt) || ''
+  }
+}
+
+function normalizeImages(images) {
+  return (images || [])
+    .map(normalizeImage)
+    .filter(image => image && image.src)
+}
+
+function normalizeShadowRecord(record, index) {
+  if (!record || !record.fileID) return null
+
+  return {
+    id: record.id || generateId(),
+    fileID: record.fileID,
+    duration: Number(record.duration) || 0,
+    createdAt: record.createdAt || now(),
+    source: record.source || 'resource-detail'
+  }
+}
+
 function normalizeSegment(segment, index) {
   const text = typeof segment === 'string' ? segment : (segment.text || '')
+  const imagesBefore = typeof segment === 'string'
+    ? []
+    : normalizeImages(segment.imagesBefore || segment.images || [])
+  const imagesAfter = typeof segment === 'string'
+    ? []
+    : normalizeImages(segment.imagesAfter || [])
+  const shadowRecords = typeof segment === 'string'
+    ? []
+    : (segment.shadowRecords || [])
+      .map(normalizeShadowRecord)
+      .filter(Boolean)
+      .sort((a, b) => b.createdAt - a.createdAt)
+
   return {
     index: segment.index || index + 1,
     text: text.trim(),
     translation: segment.translation || '',
     audioFileID: segment.audioFileID || '',
     audioStatus: segment.audioStatus || 'idle',
+    audioVoice: segment.audioVoice || '',
     duration: segment.duration || 0,
-    lastPlayedAt: segment.lastPlayedAt || 0
+    lastPlayedAt: segment.lastPlayedAt || 0,
+    shadowRecords,
+    lastShadowedAt: segment.lastShadowedAt || (shadowRecords[0] && shadowRecords[0].createdAt) || 0,
+    shadowCount: shadowRecords.length,
+    imagesBefore,
+    imagesAfter
   }
+}
+
+function collectSegmentImages(segments) {
+  return (segments || []).reduce((images, segment) => {
+    return images
+      .concat(segment.imagesBefore || [])
+      .concat(segment.imagesAfter || [])
+  }, [])
 }
 
 function buildSummary(segments) {
@@ -75,12 +131,25 @@ function buildSummary(segments) {
   return first.text.length > 90 ? first.text.slice(0, 90) + '...' : first.text
 }
 
+function normalizeStudyPack(studyPack) {
+  if (!studyPack) return null
+  return {
+    keyWords: Array.isArray(studyPack.keyWords) ? studyPack.keyWords : [],
+    hardSentences: Array.isArray(studyPack.hardSentences) ? studyPack.hardSentences : [],
+    dictationSentences: Array.isArray(studyPack.dictationSentences) ? studyPack.dictationSentences : [],
+    segmentSummaries: Array.isArray(studyPack.segmentSummaries) ? studyPack.segmentSummaries : [],
+    generatedAt: studyPack.generatedAt || 0
+  }
+}
+
 function normalizeResource(resource, userId) {
   const timestamp = now()
   const segments = (resource.segments || [])
     .slice(0, MAX_SEGMENTS)
     .map(normalizeSegment)
     .filter(segment => segment.text)
+  const resourceImages = normalizeImages(resource.images || [])
+  const images = resourceImages.length ? resourceImages : normalizeImages(collectSegmentImages(segments))
 
   return {
     id: resource.id || generateId(),
@@ -92,7 +161,9 @@ function normalizeResource(resource, userId) {
     fileName: resource.fileName || '',
     fileType: resource.fileType || '',
     format: resource.format || 'html',
+    images,
     segments,
+    studyPack: normalizeStudyPack(resource.studyPack),
     summary: resource.summary || buildSummary(segments),
     createdAt: resource.createdAt || timestamp,
     updatedAt: resource.updatedAt || timestamp,
@@ -112,6 +183,7 @@ function toIndexEntry(resource) {
     fileType: resource.fileType || '',
     format: resource.format || 'html',
     summary: resource.summary || buildSummary(segments),
+    imageCount: (resource.images || []).length,
     segmentCount: segments.length,
     cachedAudio: segments.filter(s => !!s.audioFileID).length,
     createdAt: resource.createdAt || 0,
@@ -423,6 +495,101 @@ function updateSegment(resourceId, segmentIndex, updates) {
   return updateResource(resourceId, { segments })
 }
 
+function addSegmentShadowRecord(resourceId, segmentIndex, record) {
+  const resource = loadResource(resourceId)
+  if (!resource) return null
+
+  const timestamp = now()
+  const segments = (resource.segments || []).map(segment => {
+    if (segment.index !== segmentIndex) return segment
+
+    const existingRecords = Array.isArray(segment.shadowRecords) ? segment.shadowRecords : []
+    const item = normalizeShadowRecord({
+      ...record,
+      createdAt: record && record.createdAt ? record.createdAt : timestamp
+    }, existingRecords.length)
+    if (!item) return segment
+
+    const shadowRecords = [item, ...existingRecords]
+      .map(normalizeShadowRecord)
+      .filter(Boolean)
+      .sort((a, b) => b.createdAt - a.createdAt)
+
+    return {
+      ...segment,
+      shadowRecords,
+      shadowCount: shadowRecords.length,
+      lastShadowedAt: shadowRecords[0] ? shadowRecords[0].createdAt : timestamp
+    }
+  })
+
+  return updateResource(resourceId, { segments })
+}
+
+function deleteSegmentShadowRecord(resourceId, segmentIndex, recordId) {
+  const resource = loadResource(resourceId)
+  if (!resource) return null
+
+  const segments = (resource.segments || []).map(segment => {
+    if (segment.index !== segmentIndex) return segment
+
+    const shadowRecords = (segment.shadowRecords || [])
+      .filter(record => record.id !== recordId)
+      .map(normalizeShadowRecord)
+      .filter(Boolean)
+      .sort((a, b) => b.createdAt - a.createdAt)
+
+    return {
+      ...segment,
+      shadowRecords,
+      shadowCount: shadowRecords.length,
+      lastShadowedAt: shadowRecords[0] ? shadowRecords[0].createdAt : 0
+    }
+  })
+
+  return updateResource(resourceId, { segments })
+}
+
+function pickShadowSegment(limitResources = 5) {
+  ensureState()
+  const resources = loadResourcesByEntries(
+    state.index
+      .slice()
+      .sort((a, b) => (b.lastOpenedAt || b.createdAt) - (a.lastOpenedAt || a.createdAt))
+      .slice(0, limitResources)
+  )
+
+  const candidates = []
+  resources.forEach(resource => {
+    ;(resource.segments || []).forEach(segment => {
+      if (!segment || !segment.text) return
+      const shadowRecords = segment.shadowRecords || []
+      const shadowCount = Number.isFinite(segment.shadowCount) ? segment.shadowCount : shadowRecords.length
+      const lastShadowedAt = segment.lastShadowedAt || (shadowRecords[0] && shadowRecords[0].createdAt) || 0
+
+      candidates.push({
+        resourceId: resource.id,
+        resourceTitle: resource.title,
+        segmentIndex: segment.index,
+        text: segment.text,
+        shadowCount,
+        lastShadowedAt,
+        resourceOpenedAt: resource.lastOpenedAt || resource.createdAt || 0
+      })
+    })
+  })
+
+  return candidates
+    .sort((a, b) => {
+      if (!a.shadowCount && b.shadowCount) return -1
+      if (a.shadowCount && !b.shadowCount) return 1
+      if ((a.lastShadowedAt || 0) !== (b.lastShadowedAt || 0)) {
+        return (a.lastShadowedAt || 0) - (b.lastShadowedAt || 0)
+      }
+      return (b.resourceOpenedAt || 0) - (a.resourceOpenedAt || 0)
+    })[0] || null
+}
+
 function getStats() {
   ensureState()
   return {
@@ -440,6 +607,7 @@ function clearAllAudioReferences() {
         ...segment,
         audioFileID: '',
         audioStatus: 'idle',
+        audioVoice: '',
         duration: 0
       }))
     })
@@ -472,7 +640,18 @@ function callSyncData(payload) {
     wx.cloud.callFunction({
       name: 'syncData',
       data: payload,
-      success: res => resolve(res.result || {}),
+      success: res => {
+        const result = res.result || {}
+        if (result.skipped) {
+          resolve(result)
+          return
+        }
+        if (!result.success) {
+          reject(new Error(result.error || '数据同步失败'))
+          return
+        }
+        resolve(result)
+      },
       fail: err => reject(err)
     })
   })
@@ -514,7 +693,12 @@ function flushPendingSync(options = {}) {
   const sentDeletedIds = deletedIds.slice()
   return callSyncData(payload).then(result => {
     if (result && result.success) {
-      removeSyncedIds(sentDirtyIds, sentDeletedIds)
+      // 只有确实有记录成功同步，才清除脏标记
+      const resSynced = result.resources && result.resources.synced > 0 ? result.resources.synced : 0
+      const deletedOk = result.deletedResources && result.deletedResources.deleted > 0 ? result.deletedResources.deleted : 0
+      if (resSynced > 0 || deletedOk > 0) {
+        removeSyncedIds(sentDirtyIds, sentDeletedIds)
+      }
     }
     return result
   })
@@ -554,6 +738,9 @@ module.exports = {
   searchResources,
   getRecentResources,
   updateSegment,
+  addSegmentShadowRecord,
+  deleteSegmentShadowRecord,
+  pickShadowSegment,
   getStats,
   clearAllAudioReferences,
   generateId,

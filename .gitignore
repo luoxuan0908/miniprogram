@@ -21,3 +21,13 @@ cloudfunctions/*/node_modules/
 
 # 日志
 *.log
+
+# 临时构建文件
+index-*.js
+main-*.js
+
+# 脚本输出
+scripts/output/
+
+# 上传进度
+upload-progress.json

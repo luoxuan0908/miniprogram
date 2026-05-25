@@ -3,7 +3,13 @@
   <!-- 单词头部 -->
   <view class="word-header">
     <view class="word-title-row">
-      <text class="word-name">{{word.word}}</text>
+      <view class="word-title-main">
+        <text class="word-name">{{word.word}}</text>
+        <text
+          class="word-phonetic {{word.hasPhonetic ? '' : 'muted'}}"
+          bindtap="onGeneratePhoneticTap"
+        >{{word.hasPhonetic ? word.phoneticText : (generatingPhonetic ? '音标生成中...' : (phoneticMessage || word.phoneticText))}}</text>
+      </view>
       <view class="tag tag-{{word.status}}">
         {{word.status === 'new' ? '新词' : word.status === 'learning' ? '学习中' : '已掌握'}}
       </view>
@@ -30,6 +36,14 @@
       <text class="arrow {{expandedSections.definition ? 'expanded' : ''}}">▼</text>
     </view>
     <view class="collapse-body" wx:if="{{expandedSections.definition}}">
+      <view class="info-row" bindtap="onGeneratePhoneticTap">
+        <text class="info-label">音标</text>
+        <text class="info-value {{word.hasPhonetic ? 'phonetic' : 'muted'}}">{{word.hasPhonetic ? word.phoneticText : (generatingPhonetic ? '生成中...' : (phoneticMessage || word.phoneticText))}}</text>
+      </view>
+      <view class="info-row" wx:if="{{word.content.stressHint}}">
+        <text class="info-label">重音提示</text>
+        <text class="info-value phonetic">{{word.content.stressHint}}</text>
+      </view>
       <view class="info-row" wx:if="{{word.content.shortDefinition}}">
         <text class="info-label">英文释义</text>
         <text class="info-value emphasis">{{word.content.shortDefinition}}</text>
@@ -127,6 +141,54 @@
     <view class="collapse-body" wx:if="{{expandedSections.memoryTip}}">
       <view class="memory-tip-box">
         <text>{{word.content.memoryTip}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="collapse-card pronunciation-card">
+    <view class="collapse-header">
+      <text class="collapse-title">发音训练</text>
+      <text class="audio-status">{{word.pronunciationRecords.length || 0}} 条录音</text>
+    </view>
+    <view class="collapse-body">
+      <view class="pronunciation-actions">
+        <view class="practice-btn dark" bindtap="onPlayWordAudio">{{isPlayingWord ? '暂停原音' : '播放原音'}}</view>
+        <view class="practice-btn" wx:if="{{!isRecording}}" bindtap="onStartRecording">开始录音</view>
+        <view class="practice-btn danger" wx:else bindtap="onStopRecording">停止录音</view>
+      </view>
+      <view class="draft-recording" wx:if="{{recordingTempPath}}">
+        <text>待保存录音 · {{recordingDuration}}s</text>
+        <view class="draft-actions">
+          <text bindtap="onPreviewRecording">试听</text>
+          <text bindtap="onSaveRecording">{{isUploadingRecording ? '上传中' : '保存到云端'}}</text>
+        </view>
+      </view>
+      <view class="recording-list" wx:if="{{word.pronunciationRecords.length > 0}}">
+        <view class="recording-row" wx:for="{{word.pronunciationRecords}}" wx:key="id">
+          <view>
+            <view class="recording-title">录音 {{index + 1}}</view>
+            <view class="recording-meta">{{item.duration || 0}}s · {{item.source}}</view>
+          </view>
+          <view class="recording-actions">
+            <text bindtap="onPlayRecording" data-id="{{item.id}}" data-file="{{item.fileID}}">{{playingRecordingId === item.id ? '暂停' : '播放'}}</text>
+            <text bindtap="onDeleteRecording" data-id="{{item.id}}" data-file="{{item.fileID}}">删除</text>
+          </view>
+        </view>
+      </view>
+      <view class="empty-recordings" wx:else>录完后试听，满意再保存到云端。</view>
+    </view>
+  </view>
+
+  <view class="collapse-card">
+    <view class="collapse-header">
+      <text class="collapse-title">分技能练习</text>
+    </view>
+    <view class="collapse-body">
+      <view class="skill-grid">
+        <view class="skill-chip" bindtap="onSkillPractice" data-mode="recognition" data-correct="1">识别正确</view>
+        <view class="skill-chip" bindtap="onSkillPractice" data-mode="dictation" data-correct="0">听写错因</view>
+        <view class="skill-chip" bindtap="onSkillPractice" data-mode="recall" data-correct="1">回忆正确</view>
+        <view class="skill-chip" bindtap="onSkillPractice" data-mode="context" data-correct="0">语境错因</view>
       </view>
     </view>
   </view>

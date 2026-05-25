@@ -6,6 +6,76 @@
   box-sizing: border-box;
 }
 
+/* 用户信息卡片 */
+.user-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+  padding-bottom: 40rpx;
+  margin-bottom: 40rpx;
+  border-bottom: 1rpx solid #eef0f3;
+}
+
+.profile-avatar-wrap {
+  flex-shrink: 0;
+}
+
+.avatar-btn {
+  display: block;
+  width: 120rpx;
+  height: 120rpx;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
+.profile-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background-color: #eef0f3;
+}
+
+.default-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44rpx;
+  font-weight: 850;
+  color: #9aa0aa;
+  background-color: #eef0f3;
+}
+
+.profile-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.profile-name {
+  font-size: 34rpx;
+  font-weight: 850;
+  color: #111217;
+  line-height: 1.3;
+  min-height: 44rpx;
+  padding: 0;
+}
+
+.profile-id {
+  font-size: 24rpx;
+  color: #9aa0aa;
+  line-height: 1.3;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -49,6 +119,52 @@
   font-weight: 850;
 }
 
+.duration-value {
+  font-size: 34rpx;
+  line-height: 1.18;
+  word-break: keep-all;
+}
+
+.billing-panel {
+  min-height: 136rpx;
+  border-radius: 12rpx;
+  background: #111217;
+  color: #ffffff;
+  padding: 28rpx;
+  margin-bottom: 28rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.billing-label,
+.billing-side-label {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 23rpx;
+  line-height: 1.3;
+}
+
+.billing-value {
+  margin-top: 10rpx;
+  font-size: 42rpx;
+  line-height: 1.05;
+  font-weight: 850;
+}
+
+.billing-side {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.billing-side-value {
+  margin-top: 10rpx;
+  font-size: 28rpx;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
 .section-title {
   display: flex;
   align-items: center;
@@ -62,26 +178,6 @@
 .section-icon {
   color: #6f7582;
   font-size: 32rpx;
-}
-
-.prefs-panel {
-  border: 1rpx solid #dfe3e8;
-  border-radius: 10rpx;
-  padding: 34rpx;
-  box-sizing: border-box;
-  background: #ffffff;
-}
-
-.pref-label {
-  color: #6f7582;
-  font-size: 26rpx;
-  margin-bottom: 22rpx;
-}
-
-.speed-value {
-  color: #9aa0aa;
-  font-size: 24rpx;
-  margin-top: 4rpx;
 }
 
 .settings-list {

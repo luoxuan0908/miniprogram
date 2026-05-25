@@ -1,7 +1,14 @@
+const ttsPreferences = require('./tts-preferences')
+
 /**
  * cloud.js - 云函数调用封装
  * 所有外部 API 调用统一通过云函数代理，保护密钥安全
  */
+
+function createRequestId(prefix) {
+  const random = Math.random().toString(36).slice(2, 10)
+  return `${prefix}_${Date.now()}_${random}`
+}
 
 /** 调用 login 云函数，返回 openid */
 function login() {
@@ -23,7 +30,10 @@ function generateContent(word) {
   return new Promise((resolve, reject) => {
     wx.cloud.callFunction({
       name: 'generateContent',
-      data: { word },
+      data: {
+        word,
+        requestId: createRequestId('word_content')
+      },
       success: res => {
         if (res.result && res.result.success) {
           resolve(res.result.content)
@@ -36,17 +46,129 @@ function generateContent(word) {
   })
 }
 
+function generatePhonetic(word) {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callFunction({
+      name: 'generateContent',
+      data: {
+        word,
+        mode: 'phonetic',
+        requestId: createRequestId('phonetic')
+      },
+      success: res => {
+        if (res.result && res.result.success) {
+          const content = res.result.content || {}
+          resolve(content.phonetic || '')
+        } else {
+          reject(new Error((res.result && res.result.error) || '音标生成失败'))
+        }
+      },
+      fail: err => reject(err)
+    })
+  })
+}
+
+function generatePronunciation(word) {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callFunction({
+      name: 'generateContent',
+      data: {
+        word,
+        mode: 'phonetic',
+        requestId: createRequestId('phonetic')
+      },
+      success: res => {
+        if (res.result && res.result.success) {
+          resolve(res.result.content || {})
+        } else {
+          reject(new Error((res.result && res.result.error) || '发音信息生成失败'))
+        }
+      },
+      fail: err => reject(err)
+    })
+  })
+}
+
+function uploadPronunciationRecording(tempFilePath, word) {
+  const safeWord = String(word || 'word').replace(/[^\w-]/g, '_').slice(0, 32) || 'word'
+  const cloudPath = `pronunciation/${Date.now()}-${safeWord}.mp3`
+  return new Promise((resolve, reject) => {
+    wx.cloud.uploadFile({
+      cloudPath,
+      filePath: tempFilePath,
+      success: res => resolve(res.fileID),
+      fail: err => reject(err)
+    })
+  })
+}
+
+function uploadShadowRecording(tempFilePath, resourceId, segmentIndex) {
+  const safeResourceId = String(resourceId || 'resource').replace(/[^\w-]/g, '_').slice(0, 48) || 'resource'
+  const safeSegment = String(segmentIndex || 0).replace(/[^\w-]/g, '_') || '0'
+  const cloudPath = `shadowing/${safeResourceId}/${Date.now()}-segment-${safeSegment}.mp3`
+  return new Promise((resolve, reject) => {
+    wx.cloud.uploadFile({
+      cloudPath,
+      filePath: tempFilePath,
+      success: res => resolve(res.fileID),
+      fail: err => reject(err)
+    })
+  })
+}
+
+function deleteCloudFiles(fileIDs) {
+  const fileList = (Array.isArray(fileIDs) ? fileIDs : [fileIDs]).filter(Boolean)
+  if (!fileList.length) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    wx.cloud.deleteFile({
+      fileList,
+      success: res => resolve(res),
+      fail: err => reject(err)
+    })
+  })
+}
+
+function generateResourceStudyPack(payload) {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callFunction({
+      name: 'generateResourceStudyPack',
+      data: {
+        ...(payload || {}),
+        requestId: createRequestId('resource_study_pack')
+      },
+      success: res => {
+        if (res.result && res.result.success) {
+          resolve(res.result.studyPack)
+        } else {
+          reject(new Error((res.result && res.result.error) || '精读任务生成失败'))
+        }
+      },
+      fail: err => reject(err)
+    })
+  })
+}
+
 /**
  * 调用 tts 云函数，合成语音
  * @param {string} text - 要合成的文本
  * @param {string} type - 'word' | 'cloze' | 'full'（用于区分不同音频）
+ * @param {{ voice?: string }} options - TTS 音色选项
  * @returns {Promise<string>} cloud://fileID 格式的音频文件 ID
  */
-function synthesizeSpeech(text, type = 'word') {
+function synthesizeSpeech(text, type = 'word', options = {}) {
+  const voice = ttsPreferences.normalizeTtsVoice(
+    options.voice || ttsPreferences.getTtsPreferences().ttsVoice
+  )
+
   return new Promise((resolve, reject) => {
     wx.cloud.callFunction({
       name: 'tts',
-      data: { text, type },
+      data: {
+        text,
+        type,
+        voice,
+        requestId: createRequestId('tts')
+      },
       success: res => {
         if (res.result && res.result.success) {
           resolve(res.result.fileID)
@@ -124,11 +246,20 @@ function syncToCloud(payload) {
       name: 'syncData',
       data,
       success: res => {
-        if (res.result && res.result.success) {
-          resolve(res.result)
-        } else {
-          reject(new Error((res.result && res.result.error) || '数据同步失败'))
+        const result = res.result || {}
+        if (!result.success) {
+          reject(new Error(result.error || '数据同步失败'))
+          return
         }
+        // 检查是否有部分失败
+        const wordFailed = result.words && result.words.failed > 0 ? result.words.failed : 0
+        const resourceFailed = result.resources && result.resources.failed > 0 ? result.resources.failed : 0
+        const prefFailed = result.preferences && result.preferences.failed > 0 ? result.preferences.failed : 0
+        const totalFailed = wordFailed + resourceFailed + prefFailed
+        if (totalFailed > 0) {
+          console.warn(`同步部分失败: words=${wordFailed}, resources=${resourceFailed}, preferences=${prefFailed}`)
+        }
+        resolve(result)
       },
       fail: err => reject(err)
     })
@@ -144,7 +275,10 @@ function translateText(text) {
   return new Promise((resolve, reject) => {
     wx.cloud.callFunction({
       name: 'translateSegment',
-      data: { text },
+      data: {
+        text,
+        requestId: createRequestId('translate_one')
+      },
       success: res => {
         if (res.result && res.result.success) {
           resolve(res.result.translation || '')
@@ -166,7 +300,10 @@ function translateTexts(texts) {
   return new Promise((resolve, reject) => {
     wx.cloud.callFunction({
       name: 'translateSegment',
-      data: { texts },
+      data: {
+        texts,
+        requestId: createRequestId('translate_batch')
+      },
       success: res => {
         if (res.result && res.result.success) {
           resolve(res.result.translations || [])
@@ -179,13 +316,61 @@ function translateTexts(texts) {
   })
 }
 
+function getBillingAccount() {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callFunction({
+      name: 'billing',
+      data: { action: 'getAccount' },
+      success: res => {
+        const result = res.result || {}
+        if (result.success) {
+          resolve(result)
+        } else {
+          reject(new Error(result.error || '获取余额失败'))
+        }
+      },
+      fail: err => reject(err)
+    })
+  })
+}
+
+function getBillingLedger(options = {}) {
+  return new Promise((resolve, reject) => {
+    wx.cloud.callFunction({
+      name: 'billing',
+      data: {
+        action: 'getLedger',
+        limit: options.limit || 20,
+        offset: options.offset || 0
+      },
+      success: res => {
+        const result = res.result || {}
+        if (result.success) {
+          resolve(result)
+        } else {
+          reject(new Error(result.error || '获取用量明细失败'))
+        }
+      },
+      fail: err => reject(err)
+    })
+  })
+}
+
 module.exports = {
   login,
   generateContent,
+  generatePhonetic,
+  generatePronunciation,
+  uploadPronunciationRecording,
+  uploadShadowRecording,
+  deleteCloudFiles,
+  generateResourceStudyPack,
   synthesizeSpeech,
   parseResource,
   translateText,
   translateTexts,
   synthesizeAllAudio,
-  syncToCloud
+  syncToCloud,
+  getBillingAccount,
+  getBillingLedger
 }

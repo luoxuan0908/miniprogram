@@ -6,6 +6,8 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const MAX_TEXT_LENGTH = 20000
 const MAX_SEGMENTS = 80
+const MAX_IMAGES = 40
+const IMAGE_MARKER_RE = /__RESOURCE_IMAGE_(\d+)__/g
 
 function requestText(url, redirectCount = 0) {
   return new Promise((resolve, reject) => {
@@ -102,6 +104,72 @@ function cleanInline(text) {
     .trim()
 }
 
+function getAttr(attrs, name) {
+  const pattern = new RegExp(name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'=<>`]+))", 'i')
+  const match = String(attrs || '').match(pattern)
+  return match ? decodeEntities(match[1] || match[2] || match[3] || '') : ''
+}
+
+function firstSrcsetUrl(value) {
+  return String(value || '')
+    .split(',')
+    .map(item => item.trim().split(/\s+/)[0])
+    .find(Boolean) || ''
+}
+
+function resolveImageUrl(value, baseUrl) {
+  const raw = decodeEntities(String(value || '').trim())
+  if (!raw || /^(data|blob|javascript):/i.test(raw)) return ''
+
+  try {
+    const resolved = baseUrl
+      ? new URL(raw, baseUrl).toString()
+      : (raw.indexOf('//') === 0 ? `https:${raw}` : raw)
+    return /^https?:\/\//i.test(resolved) ? resolved : ''
+  } catch (e) {
+    return /^https?:\/\//i.test(raw) ? raw : ''
+  }
+}
+
+function extractImageFromAttrs(attrs, baseUrl) {
+  const directAttrs = ['data-src', 'data-original', 'data-lazy-src', 'data-url', 'data-image', 'data-img-url', 'data-actualsrc', 'src']
+  const srcsetAttrs = ['data-srcset', 'srcset']
+  const candidates = directAttrs
+    .map(name => getAttr(attrs, name))
+    .concat(srcsetAttrs.map(name => firstSrcsetUrl(getAttr(attrs, name))))
+
+  const src = candidates
+    .map(value => resolveImageUrl(value, baseUrl))
+    .find(Boolean)
+
+  if (!src) return null
+
+  return {
+    src,
+    alt: cleanInline(getAttr(attrs, 'alt') || getAttr(attrs, 'title')).slice(0, 120)
+  }
+}
+
+function injectImageMarkers(raw, baseUrl) {
+  const images = []
+  const seen = new Set()
+  const html = String(raw || '').replace(/<img\b([^>]*)>/gi, (match, attrs) => {
+    if (images.length >= MAX_IMAGES) return '\n'
+
+    const image = extractImageFromAttrs(attrs, baseUrl)
+    if (!image || seen.has(image.src)) return '\n'
+
+    seen.add(image.src)
+    images.push({
+      ...image,
+      index: images.length + 1
+    })
+    return `\n\n__RESOURCE_IMAGE_${images.length - 1}__\n\n`
+  })
+
+  return { html, images }
+}
+
 function stripHtml(raw) {
   return decodeEntities(String(raw || '')
     .replace(/<script[\s\S]*?<\/script>/gi, '\n')
@@ -155,6 +223,64 @@ function splitSentences(text) {
     .slice(0, MAX_SEGMENTS)
 }
 
+function createSegment(text, index, imagesBefore) {
+  const segment = {
+    index,
+    text,
+    translation: '',
+    audioFileID: '',
+    audioStatus: 'idle',
+    audioVoice: ''
+  }
+
+  if (imagesBefore && imagesBefore.length) {
+    segment.imagesBefore = imagesBefore
+  }
+
+  return segment
+}
+
+function buildTextSegments(segmentTexts) {
+  return segmentTexts.map((text, index) => createSegment(text, index + 1))
+}
+
+function splitSegmentsWithImages(plainText, images) {
+  const segments = []
+  let pendingImages = []
+  let lastIndex = 0
+  let match
+
+  IMAGE_MARKER_RE.lastIndex = 0
+
+  function appendTextSegments(text) {
+    splitSentences(text).forEach(segmentText => {
+      if (segments.length >= MAX_SEGMENTS) return
+
+      const segment = createSegment(segmentText, segments.length + 1, pendingImages)
+      pendingImages = []
+      segments.push(segment)
+    })
+  }
+
+  while ((match = IMAGE_MARKER_RE.exec(plainText)) !== null) {
+    appendTextSegments(plainText.slice(lastIndex, match.index))
+
+    const image = images[Number(match[1])]
+    if (image) pendingImages.push(image)
+
+    lastIndex = IMAGE_MARKER_RE.lastIndex
+  }
+
+  appendTextSegments(plainText.slice(lastIndex))
+
+  if (pendingImages.length && segments.length) {
+    const lastSegment = segments[segments.length - 1]
+    lastSegment.imagesAfter = (lastSegment.imagesAfter || []).concat(pendingImages)
+  }
+
+  return segments
+}
+
 function inferFileType(name, contentType) {
   const lower = String(name || '').toLowerCase()
   if (lower.endsWith('.txt') || /text\/plain/.test(contentType || '')) return 'txt'
@@ -188,21 +314,15 @@ exports.main = async (event) => {
 
     const fileType = event.fileType || inferFileType(fileName || url, contentType)
     const title = fileType === 'html' ? extractTitle(raw, titleFallback) : (fileName || titleFallback)
-    const plainText = (fileType === 'html' ? stripHtml(raw) : String(raw || '')).slice(0, MAX_TEXT_LENGTH)
-    const segmentTexts = splitSentences(plainText)
+    const imageParse = fileType === 'html' ? injectImageMarkers(raw, url) : { html: raw, images: [] }
+    const plainText = (fileType === 'html' ? stripHtml(imageParse.html) : String(raw || '')).slice(0, MAX_TEXT_LENGTH)
+    const segments = fileType === 'html'
+      ? splitSegmentsWithImages(plainText, imageParse.images)
+      : buildTextSegments(splitSentences(plainText))
 
-    if (segmentTexts.length === 0) {
+    if (segments.length === 0) {
       return { success: false, error: '没有解析到可学习的英文段落' }
     }
-
-    // 不再翻译，翻译由前端逐段按需调用 translateSegment
-    const segments = segmentTexts.map((text, index) => ({
-      index: index + 1,
-      text,
-      translation: '',
-      audioFileID: '',
-      audioStatus: 'idle'
-    }))
 
     return {
       success: true,
@@ -214,6 +334,7 @@ exports.main = async (event) => {
         fileName,
         fileType,
         format: fileType,
+        images: imageParse.images,
         segments,
         summary: segments[0] ? segments[0].text.slice(0, 100) : ''
       }

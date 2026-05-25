@@ -66,6 +66,7 @@ const DEEPSEEK_PROMPT = (word) => `你是一位专业的英语教学专家。请
 请严格按以下JSON格式返回，不要添加任何额外说明：
 
 {
+  "phonetic": "IPA音标，例如 /juːˈbɪkwɪtəs/；短语或无法确定时填空字符串",
   "shortDefinition": "简洁英文释义（不超过15词）",
   "chineseHint": "中文提示（10字以内）",
   "examples": ["自然例句1（包含目标单词）", "自然例句2（包含目标单词）"],

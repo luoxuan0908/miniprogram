@@ -1,0 +1,121 @@
+<view class="daily-page">
+  <view class="daily-head">
+    <view class="daily-title">今日 5 分钟</view>
+    <view class="daily-subtitle">完成 {{completedCount}} / {{totalCount}} · {{progress}}%</view>
+  </view>
+
+  <view class="progress-bar">
+    <view class="progress-fill" style="width: {{progress}}%"></view>
+  </view>
+
+  <view class="task-card" wx:if="{{currentTask}}">
+    <view class="task-type">{{currentTask.modeLabel || currentTask.type}}</view>
+    <view class="task-title">{{currentTask.title}}</view>
+    <view class="task-desc">{{currentTask.desc}}</view>
+
+    <!-- dictation 模式：播放按钮 -->
+    <view class="audio-btn" wx:if="{{currentTask.practiceMode === 'dictation'}}" bindtap="onPlayWordAudio">
+      <text class="audio-icon">🔊</text>
+      <text class="audio-label">播放原音</text>
+    </view>
+
+    <view class="task-prompt" wx:if="{{currentTask.prompt}}">{{currentTask.prompt}}</view>
+
+    <view class="shadow-task" wx:if="{{currentTask.type === 'segment-shadow'}}">
+      <view class="shadow-resource">{{currentTask.resourceTitle}}</view>
+      <view class="shadow-hint">打开片段跟读，保存一条录音后返回这里。</view>
+      <view class="primary-btn shadow-open-btn" bindtap="onOpenShadowTask">开始跟读</view>
+    </view>
+
+    <!-- 输入框：dictation / recall / context -->
+    <input
+      wx:if="{{(currentTask.type === 'word-review' || currentTask.type === 'mistake-review') && currentTask.practiceMode !== 'recognition'}}"
+      class="answer-input {{checkedResult}}"
+      value="{{answer}}"
+      placeholder="输入你的答案，回车提交"
+      bindinput="onAnswerInput"
+      bindconfirm="onAnswerConfirm"
+      disabled="{{isFinishing}}"
+      focus
+    />
+
+    <!-- 自动判题结果 -->
+    <view class="result-hint correct" wx:if="{{checkedResult === 'correct'}}">
+      ✓ 回答正确
+    </view>
+    <block wx:if="{{checkedResult === 'incorrect'}}">
+      <view class="result-hint incorrect">✗ 回答错误</view>
+      <view class="expected-answer">正确答案：{{currentTask.expected}}</view>
+      <view class="reason-row">
+        <view
+          class="reason-chip {{mistakeReason === item ? 'active' : ''}}"
+          wx:for="{{mistakeReasons}}"
+          wx:key="*this"
+          data-reason="{{item}}"
+          bindtap="onReasonTap"
+        >{{item}}</view>
+      </view>
+    </block>
+
+    <!-- recognition 模式：显示答案，用户自评 -->
+    <view class="recognition-answer" wx:if="{{currentTask.practiceMode === 'recognition' && showAnswer}}">
+      <view class="answer-word">{{currentTask.expected}}</view>
+      <view class="answer-meaning">{{currentTask.desc}}</view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="task-actions">
+      <!-- 输入模式：未判题时显示「提交」，判错后显示「确认」 -->
+      <view
+        class="primary-btn"
+        wx:if="{{(currentTask.type === 'word-review' || currentTask.type === 'mistake-review') && currentTask.practiceMode !== 'recognition' && !checkedResult}}"
+        bindtap="onAnswerConfirm"
+      >提交</view>
+      <view
+        class="primary-btn"
+        wx:if="{{checkedResult === 'incorrect'}}"
+        bindtap="onConfirmIncorrect"
+      >确认</view>
+
+      <!-- recognition 模式：显示答案后自评 -->
+      <view
+        class="secondary-btn"
+        wx:if="{{currentTask.practiceMode === 'recognition' && !showAnswer}}"
+        bindtap="onAnswerConfirm"
+      >显示答案</view>
+      <view
+        class="secondary-btn"
+        wx:if="{{currentTask.practiceMode === 'recognition' && showAnswer}}"
+        data-correct="0"
+        bindtap="onMarkTask"
+      >没想起来</view>
+      <view
+        class="primary-btn"
+        wx:if="{{currentTask.practiceMode === 'recognition' && showAnswer}}"
+        data-correct="1"
+        bindtap="onMarkTask"
+      >记住了</view>
+    </view>
+  </view>
+
+  <view class="done-card" wx:else>
+    <view class="done-title">今日学习已完成</view>
+    <view class="done-stats" wx:if="{{resultStats}}">
+      <view class="stat-item stat-correct">
+        <view class="stat-num">{{resultStats.correct}}</view>
+        <view class="stat-label">答对</view>
+      </view>
+      <view class="stat-item stat-incorrect">
+        <view class="stat-num">{{resultStats.incorrect}}</view>
+        <view class="stat-label">答错</view>
+      </view>
+      <view class="stat-item stat-skipped">
+        <view class="stat-num">{{resultStats.skipped}}</view>
+        <view class="stat-label">跳过</view>
+      </view>
+    </view>
+    <view class="done-duration">本次用时 {{sessionDurationLabel}}</view>
+    <view class="done-desc">保持这个节奏，明天继续。</view>
+    <view class="secondary-btn reset-btn" bindtap="onReset">重新生成今日任务</view>
+  </view>
+</view>

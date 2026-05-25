@@ -1,10 +1,5 @@
 <!--pages/index/index.wxml-->
 <view class="home-page">
-  <view class="greeting">
-    <view class="greeting-title">早上好</view>
-    <view class="greeting-subtitle">今天想学什么？</view>
-  </view>
-
   <view class="module-grid">
     <view
       class="module-card {{!item.enabled ? 'module-disabled' : ''}}"
@@ -17,6 +12,23 @@
       <view class="module-title">{{item.title}}</view>
       <view class="module-desc">{{item.desc}}</view>
     </view>
+  </view>
+
+  <view class="daily-card" bindtap="onOpenDailySession">
+    <view>
+      <view class="daily-title">今日 5 分钟</view>
+      <view class="daily-meta">已完成 {{daily.completed || 0}} / {{daily.total || 0}}</view>
+      <view class="daily-duration">已学 {{daily.durationLabel}}</view>
+    </view>
+    <view class="daily-progress">{{daily.progress || 0}}%</view>
+  </view>
+
+  <view class="billing-card" bindtap="onOpenBilling">
+    <view>
+      <view class="billing-title">AI 余额</view>
+      <view class="billing-meta">累计扣费 ¥{{billingSummary.chargedLabel}}</view>
+    </view>
+    <view class="billing-balance">{{billingSummary.ready ? '¥' : ''}}{{billingSummary.balanceLabel}}</view>
   </view>
 
   <view class="section-head">
@@ -41,4 +53,7 @@
   <view class="recent-empty" wx:else bindtap="onAddResource">
     导入你的第一篇文档或添加生词开始学习
   </view>
+
+  <!-- 临时：数据导入管理按钮 -->
+  <view class="import-admin-btn" bindtap="onImportAdmin">管理</view>
 </view>

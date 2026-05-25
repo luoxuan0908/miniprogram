@@ -1,0 +1,42 @@
+<!--pages/courses/courses.wxml-->
+<view class="courses-page">
+  <view class="topbar">
+    <view>
+      <view class="page-title">课程</view>
+      <view class="page-subtitle">系统化学习英语表达</view>
+    </view>
+  </view>
+
+  <view class="course-list" wx:if="{{courses.length > 0}}">
+    <view class="course-card" wx:for="{{courses}}" wx:key="id" bindtap="onCourseTap" data-id="{{item.id}}">
+      <view class="course-header">
+        <view class="course-type-badge">{{item._typeLabel || item.type}}</view>
+        <view class="course-count">{{item.totalItems}} {{item._itemUnit || '条'}}</view>
+      </view>
+      <view class="course-title">{{item.title}}</view>
+      <view class="course-subtitle" wx:if="{{item.subtitle}}">{{item.subtitle}}</view>
+      <view class="course-desc" wx:if="{{item.description}}">{{item.description}}</view>
+      <view class="course-tags" wx:if="{{item.tags && item.tags.length > 0}}">
+        <text class="course-tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+      </view>
+      <view class="course-footer">
+        <view class="course-progress-row" wx:if="{{statsMap[item.id]}}">
+          <view class="progress-bar">
+            <view class="progress-fill" style="width: {{statsMap[item.id].progressPercent}}%"></view>
+          </view>
+          <text class="progress-text">{{statsMap[item.id].progressPercent}}%</text>
+        </view>
+        <view class="course-arrow">→</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{courses.length === 0 && !loading}}">
+    <view class="empty-title">暂无课程</view>
+    <view class="empty-desc">更多课程即将上线，敬请期待。</view>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

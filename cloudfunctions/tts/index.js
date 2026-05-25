@@ -2,80 +2,77 @@ const cloud = require('wx-server-sdk')
 const https = require('https')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
-// 优先读环境变量，否则用下方硬编码
-const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || '在此填入你的DashScope API Key'
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY || ''
+const DEFAULT_VOICE = 'Cherry'
+const SUPPORTED_VOICES = ['Cherry', 'Serena', 'Ethan', 'Moon', 'Chelsie']
+const MODEL_KEY = 'dashscope-qwen3-tts-flash'
+const MODEL_OPERATION = 'tts'
 
-/**
- * Node.js HTTPS POST
- */
+function normalizeVoice(value) {
+  const voice = String(value || '').trim()
+  return SUPPORTED_VOICES.indexOf(voice) === -1 ? DEFAULT_VOICE : voice
+}
+
+function createRequestId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+async function callBilling(action, payload) {
+  try {
+    const res = await cloud.callFunction({
+      name: 'billing',
+      data: { action, ...payload }
+    })
+    return res.result || { success: false, error: '计费服务无返回' }
+  } catch (err) {
+    console.warn('billing call failed:', err && err.message)
+    return { success: false, skipped: true, allowed: true, error: err && err.message }
+  }
+}
+
+async function ensureBillingAllowed(payload) {
+  const result = await callBilling('precheck', payload)
+  if (!result.success) throw new Error(result.error || '计费服务不可用')
+  if (result.success && result.allowed === false) throw new Error(result.error || 'AI 余额不足')
+  return result
+}
+
 function httpsPost(url, headers, data) {
   return new Promise((resolve, reject) => {
-    console.log('[DEBUG] httpsPost raw URL:', url)
     const urlObj = new URL(url)
-    console.log('[DEBUG] parsed hostname:', urlObj.hostname, 'port:', urlObj.port || '443', 'pathname:', urlObj.pathname)
-    console.log('[DEBUG] HTTPS_PROXY:', process.env.HTTPS_PROXY, 'HTTP_PROXY:', process.env.HTTP_PROXY)
-
     const options = {
       hostname: urlObj.hostname,
       port: urlObj.port || 443,
       path: urlObj.pathname + urlObj.search,
       method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Length': Buffer.byteLength(data)
-      }
+      headers: { ...headers, 'Content-Length': Buffer.byteLength(data) }
     }
-
-    console.log('[DEBUG] request options:', JSON.stringify(options))
 
     const req = https.request(options, (res) => {
       const chunks = []
-      res.on('data', chunk => { chunks.push(chunk) })
-      res.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8')
-        resolve({ statusCode: res.statusCode, data: body })
-      })
+      res.on('data', chunk => chunks.push(chunk))
+      res.on('end', () => resolve({ statusCode: res.statusCode, data: Buffer.concat(chunks).toString('utf8') }))
     })
-
     req.on('error', reject)
-    req.setTimeout(25000, () => {
-      req.destroy(new Error('请求超时'))
-    })
+    req.setTimeout(25000, () => req.destroy(new Error('请求超时')))
     req.write(data)
     req.end()
   })
 }
 
-/**
- * 下载音频文件（复用 httpsPost 的相同模式，method 改 GET）
- */
 function downloadAudio(audioUrl) {
   return new Promise((resolve, reject) => {
-    console.log('[DEBUG] downloadAudio raw:', typeof audioUrl, JSON.stringify(audioUrl))
-
     if (!audioUrl || typeof audioUrl !== 'string') {
       return reject(new Error('audioUrl is not a string: ' + typeof audioUrl))
     }
 
     let url = audioUrl.trim()
-    if (!url) {
-      return reject(new Error('audioUrl is empty'))
-    }
-
-    // 补全协议（某些返回可能是协议相对URL）
-    if (url.startsWith('//')) {
-      url = 'https:' + url
-    }
+    if (!url) return reject(new Error('audioUrl is empty'))
+    if (url.startsWith('//')) url = 'https:' + url
 
     let urlObj
-    try {
-      urlObj = new URL(url)
-    } catch (e) {
-      console.error('[DEBUG] Invalid URL string:', url)
-      return reject(new Error('Invalid URL: ' + url))
-    }
-
-    console.log('[DEBUG] downloadAudio parsed:', urlObj.hostname, urlObj.port || '443')
+    try { urlObj = new URL(url) }
+    catch (e) { return reject(new Error('Invalid URL: ' + url)) }
 
     const options = {
       hostname: urlObj.hostname,
@@ -85,75 +82,52 @@ function downloadAudio(audioUrl) {
     }
 
     const req = https.request(options, (res) => {
-      console.log('[DEBUG] downloadAudio status:', res.statusCode, 'location:', !!res.headers.location)
-
-      // 处理重定向
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        console.log('[DEBUG] redirect to:', res.headers.location.substring(0, 100))
         req.destroy()
         return downloadAudio(res.headers.location).then(resolve).catch(reject)
       }
-
       const chunks = []
       res.on('data', chunk => chunks.push(chunk))
-      res.on('end', () => {
-        const buffer = Buffer.concat(chunks)
-        console.log('[DEBUG] downloadAudio done, size:', buffer.length)
-        resolve(buffer)
-      })
+      res.on('end', () => resolve(Buffer.concat(chunks)))
     })
-
-    req.on('error', (err) => {
-      console.error('[DEBUG] downloadAudio error:', err.message)
-      reject(err)
-    })
+    req.on('error', reject)
     req.setTimeout(25000, () => req.destroy(new Error('下载超时')))
     req.end()
   })
 }
 
-/**
- * 阿里云百炼 Qwen-TTS 语音合成（非流式 HTTP API）
- * 返回音频 URL → 下载 → 上传云存储
- */
 exports.main = async (event, context) => {
   const { text, type = 'word' } = event
 
-  if (!text || !text.trim()) {
-    return { success: false, error: '文本不能为空' }
-  }
-
-  if (!DASHSCOPE_API_KEY || DASHSCOPE_API_KEY === '在此填入你的DashScope API Key') {
-    return { success: false, error: 'DASHSCOPE_API_KEY 未配置' }
-  }
+  if (!text || !text.trim()) return { success: false, error: '文本不能为空' }
+  if (!DASHSCOPE_API_KEY) return { success: false, error: 'DASHSCOPE_API_KEY 未配置' }
 
   try {
-    // 根据文本类型选择语音和语言
-    const isEnglish = /[a-zA-Z]/.test(text.trim())
-    const voice = isEnglish ? 'Cherry' : 'longxiaochun'
+    const trimmedText = text.trim()
+    const requestId = event.requestId || createRequestId('tts')
+    const meters = { tts_chars: trimmedText.length }
+
+    const billingPrecheck = await ensureBillingAllowed({
+      requestId, modelKey: MODEL_KEY, operation: MODEL_OPERATION,
+      meters, usageSource: 'estimated', metadata: { feature: 'tts', type }
+    })
+    const providerModel = billingPrecheck.model && billingPrecheck.model.providerModel
+    if (!providerModel) throw new Error('模型目录未返回 providerModel')
+
+    const isEnglish = /[a-zA-Z]/.test(trimmedText)
+    const voice = normalizeVoice(event.voice)
     const languageType = isEnglish ? 'English' : 'Chinese'
 
     const requestBody = JSON.stringify({
-      model: 'qwen3-tts-flash',
-      input: {
-        text: text.trim(),
-        voice: voice,
-        language_type: languageType
-      }
+      model: providerModel,
+      input: { text: trimmedText, voice, language_type: languageType }
     })
-
-    console.log('TTS request:', text.trim().substring(0, 50), 'voice:', voice, 'type:', type)
 
     const response = await httpsPost(
       'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DASHSCOPE_API_KEY}`
-      },
+      { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DASHSCOPE_API_KEY}` },
       requestBody
     )
-
-    console.log('TTS response status:', response.statusCode)
 
     if (response.statusCode !== 200) {
       return { success: false, error: `TTS API 返回错误: ${response.statusCode} - ${response.data.substring(0, 500)}` }
@@ -161,65 +135,43 @@ exports.main = async (event, context) => {
 
     const data = JSON.parse(response.data)
 
-    console.log('[DEBUG] TTS response output:', JSON.stringify(data.output || data).substring(0, 500))
-
     // 从响应中提取音频 URL
     let audioUrl = null
-
     if (data.output) {
-      // data.output.audio 可能是对象 { data, expires_at, id, url } 或字符串 URL
       if (data.output.audio && typeof data.output.audio === 'object' && data.output.audio.url) {
         audioUrl = data.output.audio.url
       } else if (typeof data.output.audio === 'string') {
         audioUrl = data.output.audio
       }
-      // 也兼容 results 数组格式
       if (!audioUrl && data.output.results && data.output.results[0]) {
         const r = data.output.results[0]
-        if (r.audio && typeof r.audio === 'object' && r.audio.url) {
-          audioUrl = r.audio.url
-        } else if (typeof r.audio === 'string') {
-          audioUrl = r.audio
-        } else if (r.url) {
-          audioUrl = r.url
-        }
+        if (r.audio && typeof r.audio === 'object' && r.audio.url) audioUrl = r.audio.url
+        else if (typeof r.audio === 'string') audioUrl = r.audio
+        else if (r.url) audioUrl = r.url
       }
     }
 
-    console.log('[DEBUG] extracted audioUrl type:', typeof audioUrl, 'value:', JSON.stringify(audioUrl))
-
     if (!audioUrl || typeof audioUrl !== 'string') {
       const errMsg = data.message || JSON.stringify(data.output || data).substring(0, 300)
-      return { success: false, error: `TTS 响应异常（未获取到有效音频URL）: ${errMsg}` }
+      return { success: false, error: `TTS 响应异常: ${errMsg}` }
     }
 
-    console.log('Audio URL obtained, downloading...')
-
-    // 下载音频文件
     const audioData = await downloadAudio(audioUrl)
+    if (!audioData || audioData.length === 0) return { success: false, error: '下载音频数据为空' }
 
-    if (!audioData || audioData.length === 0) {
-      return { success: false, error: '下载音频数据为空' }
-    }
+    const safeText = trimmedText.replace(/[^\w\u4e00-\u9fff]/g, '_').substring(0, 20)
+    const safeType = String(type || 'word').replace(/[^\w-]/g, '_').substring(0, 24)
+    const cloudPath = `audio/${safeType}/${voice}_${safeText}_${Date.now()}.mp3`
 
-    console.log('Audio downloaded, size:', audioData.length, 'bytes')
+    const uploadResult = await cloud.uploadFile({ cloudPath, fileContent: audioData })
 
-    // 上传到云存储
-    const safeText = text.replace(/[^\w\u4e00-\u9fff]/g, '_').substring(0, 20)
-    const cloudPath = `audio/${type}/${safeText}_${Date.now()}.mp3`
-
-    const uploadResult = await cloud.uploadFile({
-      cloudPath: cloudPath,
-      fileContent: audioData
+    await callBilling('settle', {
+      requestId, modelKey: MODEL_KEY, operation: MODEL_OPERATION,
+      providerUsage: data.usage || null, meters, usageSource: 'estimated',
+      metadata: { feature: 'tts', type, voice, cloudPath }
     })
 
-    console.log('Audio uploaded, fileID:', uploadResult.fileID)
-
-    return {
-      success: true,
-      fileID: uploadResult.fileID,
-      cloudPath: cloudPath
-    }
+    return { success: true, fileID: uploadResult.fileID, cloudPath }
   } catch (err) {
     console.error('tts error:', err)
     return { success: false, error: err.message || '语音合成失败' }

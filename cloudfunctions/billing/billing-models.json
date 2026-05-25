@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "modelKey": "deepseek-chat-text",
+      "provider": "deepseek",
+      "providerModel": "deepseek-chat",
+      "operation": "text_generation",
+      "enabled": true,
+      "usageAdapter": "deepseek_chat",
+      "priceVersion": "v1-internal-estimate"
+    },
+    {
+      "modelKey": "dashscope-qwen3-tts-flash",
+      "provider": "dashscope",
+      "providerModel": "qwen3-tts-flash",
+      "operation": "tts",
+      "enabled": true,
+      "usageAdapter": "dashscope_tts_chars",
+      "priceVersion": "v1-internal-estimate"
+    }
+  ]
+}

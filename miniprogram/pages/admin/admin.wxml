@@ -1,0 +1,54 @@
+<view class="container">
+  <view class="section">
+    <view class="section-title">习语音频上传</view>
+    <view class="info">
+      <text>从本地文件上传到云存储，替代 TTS 生成</text>
+    </view>
+    <view class="progress-info" wx:if="{{uploading || completed > 0}}">
+      <text>进度: {{currentIndex}}/1355</text>
+      <text>成功: {{successCount}} | 失败: {{failCount}}</text>
+      <text>DB更新: {{dbUpdated}}</text>
+    </view>
+    <view class="btn-group">
+      <button
+        class="btn"
+        bindtap="startUpload"
+        disabled="{{uploading}}"
+        loading="{{uploading}}"
+      >
+        {{uploading ? '上传中...' : '开始上传'}}
+      </button>
+      <button
+        class="btn btn-warning"
+        bindtap="pauseUpload"
+        wx:if="{{uploading}}"
+      >
+        暂停
+      </button>
+    </view>
+    <button
+      class="btn btn-secondary"
+      bindtap="retryFailed"
+      disabled="{{!hasFailed || uploading}}"
+      wx:if="{{hasFailed}}"
+    >
+      重试失败 ({{failedCount}})
+    </button>
+    <button
+      class="btn btn-ghost"
+      bindtap="clearProgress"
+      disabled="{{uploading}}"
+    >
+      清除进度缓存
+    </button>
+  </view>
+
+  <view class="log-section" wx:if="{{logs.length}}">
+    <view class="section-title">日志</view>
+    <scroll-view scroll-y class="log-list">
+      <view class="log-item {{item.type}}" wx:for="{{logs}}" wx:key="index">
+        <text class="log-time">{{item.time}}</text> {{item.msg}}
+      </view>
+    </scroll-view>
+  </view>
+</view>

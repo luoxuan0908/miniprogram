@@ -19,6 +19,13 @@ exports.main = async (event) => {
     return { success: false, error: '未获取到 openid' }
   }
 
+  // 自动创建集合（如果集合不存在，get()/update() 可能报错）
+  if (event.action !== 'pull') {
+    await ensureCollection('words')
+    await ensureCollection('resources')
+    await ensureCollection('preferences')
+  }
+
   if (event.action === 'pull') {
     return pullData(openid, event.scope || 'all')
   }
@@ -39,6 +46,26 @@ exports.main = async (event) => {
       ? await upsertPreference(preferences, openid, ownerId, syncedAt)
       : { synced: 0, failed: 0 }
 
+    const hasAnyPayload = words.length > 0 || resources.length > 0 || deletedWordIds.length > 0 || deletedResourceIds.length > 0 || preferences
+    const allFailed = hasAnyPayload &&
+      wordResult.failed === wordResult.total &&
+      resourceResult.failed === resourceResult.total &&
+      deletedWords.failed === deletedWords.total &&
+      deletedResources.failed === deletedResources.total &&
+      preferenceResult.failed === preferenceResult.total
+
+    if (allFailed) {
+      return {
+        success: false,
+        error: '所有记录同步失败，请检查云数据库集合是否存在（words、resources、preferences）',
+        words: wordResult,
+        resources: resourceResult,
+        preferences: preferenceResult,
+        deletedWords,
+        deletedResources
+      }
+    }
+
     return {
       success: true,
       words: wordResult,
@@ -50,6 +77,14 @@ exports.main = async (event) => {
   } catch (err) {
     console.error('syncData error:', err)
     return { success: false, error: err.message || '数据同步失败' }
+  }
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.createCollection(name)
+  } catch (e) {
+    // 集合已存在或 createCollection 不支持时忽略
   }
 }
 
@@ -66,11 +101,15 @@ async function pullData(openid, scope) {
     }
 
     if (scope === 'all' || scope === 'preferences') {
-      const preferences = await db.collection('preferences').where({
-        _openid: openid,
-        type: 'study_preferences'
-      }).get()
-      result.preferences = preferences.data && preferences.data[0] ? preferences.data[0].data || {} : {}
+      try {
+        const preferences = await db.collection('preferences').where({
+          _openid: openid,
+          type: 'study_preferences'
+        }).get()
+        result.preferences = preferences.data && preferences.data[0] ? preferences.data[0].data || {} : {}
+      } catch (e) {
+        result.preferences = {}
+      }
     }
 
     return result
@@ -81,29 +120,34 @@ async function pullData(openid, scope) {
 }
 
 async function getAllRecords(collectionName, openid) {
-  const collection = db.collection(collectionName)
-  const pageSize = 100
-  let skip = 0
-  let all = []
+  try {
+    const collection = db.collection(collectionName)
+    const pageSize = 100
+    let skip = 0
+    let all = []
 
-  while (true) {
-    const res = await collection.where({ _openid: openid }).skip(skip).limit(pageSize).get()
-    const data = res.data || []
-    all = all.concat(data)
-    if (data.length < pageSize) break
-    skip += pageSize
+    while (true) {
+      const res = await collection.where({ _openid: openid }).skip(skip).limit(pageSize).get()
+      const data = res.data || []
+      all = all.concat(data)
+      if (data.length < pageSize) break
+      skip += pageSize
+    }
+
+    return all
+  } catch (e) {
+    console.error(`getAllRecords ${collectionName} error:`, e)
+    return []
   }
-
-  return all
 }
 
 async function upsertRecords(collectionName, records, openid, ownerId, syncedAt) {
   if (!records.length) return { total: 0, synced: 0, failed: 0 }
 
   const collection = db.collection(collectionName)
-  const results = await Promise.allSettled(records.map(record => {
+  const results = await Promise.allSettled(records.map(async record => {
     const id = record.id
-    if (!id) return Promise.reject(new Error(`${collectionName} 记录缺少 id`))
+    if (!id) throw new Error(`${collectionName} 记录缺少 id`)
 
     const doc = {
       ...record,
@@ -116,12 +160,19 @@ async function upsertRecords(collectionName, records, openid, ownerId, syncedAt)
 
     delete doc._id
 
-    return collection.where({ id, _openid: openid }).get().then(res => {
-      if (res.data.length > 0) {
+    // 先尝试查询记录是否存在
+    try {
+      const res = await collection.where({ id, _openid: openid }).get()
+      if (res.data && res.data.length > 0) {
+        // 记录存在，执行 update
         return collection.where({ id, _openid: openid }).update({ data: doc })
       }
+      // 记录不存在，执行 add（add 会自动创建集合）
       return collection.add({ data: doc })
-    })
+    } catch (getErr) {
+      // get 失败（集合不存在等情况），直接尝试 add
+      return collection.add({ data: doc })
+    }
   }))
 
   const failed = results.filter(result => result.status === 'rejected')
@@ -140,8 +191,13 @@ async function deleteRecords(collectionName, ids, openid) {
   if (!ids.length) return { total: 0, deleted: 0, failed: 0 }
 
   const collection = db.collection(collectionName)
-  const results = await Promise.allSettled(ids.map(id => {
-    return collection.where({ id, _openid: openid }).remove()
+  const results = await Promise.allSettled(ids.map(async id => {
+    try {
+      return await collection.where({ id, _openid: openid }).remove()
+    } catch (e) {
+      // 集合不存在时忽略删除错误
+      return { stats: { removed: 0 } }
+    }
   }))
 
   const failed = results.filter(result => result.status === 'rejected')
@@ -168,19 +224,24 @@ async function upsertPreference(preferences, openid, ownerId, syncedAt) {
     syncedAt
   }
 
-  const existing = await collection.where({
-    _openid: openid,
-    type: 'study_preferences'
-  }).get()
-
-  if (existing.data.length > 0) {
-    await collection.where({
+  try {
+    const existing = await collection.where({
       _openid: openid,
       type: 'study_preferences'
-    }).update({ data: doc })
-  } else {
-    await collection.add({ data: doc })
-  }
+    }).get()
 
-  return { total: 1, synced: 1, failed: 0 }
+    if (existing.data && existing.data.length > 0) {
+      await collection.where({
+        _openid: openid,
+        type: 'study_preferences'
+      }).update({ data: doc })
+    } else {
+      await collection.add({ data: doc })
+    }
+
+    return { total: 1, synced: 1, failed: 0 }
+  } catch (e) {
+    console.error('upsertPreference error:', e)
+    return { total: 1, synced: 0, failed: 1, error: e.message || '偏好同步失败' }
+  }
 }

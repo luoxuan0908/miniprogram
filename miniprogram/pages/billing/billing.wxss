@@ -1,0 +1,163 @@
+.billing-page {
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 32rpx 28rpx 140rpx;
+  box-sizing: border-box;
+}
+
+.balance-panel {
+  min-height: 176rpx;
+  border-radius: 12rpx;
+  background: #111217;
+  color: #ffffff;
+  padding: 32rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.balance-label,
+.side-label {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 24rpx;
+  line-height: 1.3;
+}
+
+.balance-value {
+  margin-top: 12rpx;
+  font-size: 52rpx;
+  line-height: 1.05;
+  font-weight: 850;
+}
+
+.balance-side {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.side-value {
+  margin-top: 12rpx;
+  font-size: 30rpx;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.note-row {
+  margin-top: 22rpx;
+  color: #6f7582;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.error-panel {
+  margin-top: 24rpx;
+  border: 1rpx solid #e5b454;
+  border-radius: 10rpx;
+  background: #fff8e8;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.error-title {
+  color: #8a5b00;
+  font-size: 28rpx;
+  line-height: 1.35;
+  font-weight: 820;
+}
+
+.error-copy {
+  margin-top: 10rpx;
+  color: #8a5b00;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.section-title {
+  margin: 44rpx 0 22rpx;
+  color: #111217;
+  font-size: 31rpx;
+  font-weight: 850;
+}
+
+.ledger-list {
+  border: 1rpx solid #dfe3e8;
+  border-radius: 10rpx;
+  overflow: hidden;
+}
+
+.ledger-row {
+  min-height: 150rpx;
+  padding: 24rpx;
+  border-bottom: 1rpx solid #eef0f3;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18rpx;
+  box-sizing: border-box;
+}
+
+.ledger-row:last-child {
+  border-bottom: none;
+}
+
+.ledger-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ledger-title {
+  color: #111217;
+  font-size: 29rpx;
+  line-height: 1.35;
+  font-weight: 780;
+}
+
+.ledger-meta,
+.ledger-meters,
+.ledger-status {
+  margin-top: 8rpx;
+  color: #6f7582;
+  font-size: 23rpx;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.ledger-status {
+  color: #17833d;
+}
+
+.status-unpriced {
+  color: #a46a00;
+}
+
+.ledger-amount {
+  color: #111217;
+  font-size: 27rpx;
+  line-height: 1.35;
+  font-weight: 820;
+  flex-shrink: 0;
+}
+
+.amount-unpriced {
+  color: #a46a00;
+}
+
+.empty-state {
+  min-height: 160rpx;
+  border: 1rpx solid #dfe3e8;
+  border-radius: 10rpx;
+  color: #8b8f99;
+  font-size: 26rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.load-more {
+  padding: 24rpx 0;
+  color: #8b8f99;
+  font-size: 24rpx;
+  text-align: center;
+}

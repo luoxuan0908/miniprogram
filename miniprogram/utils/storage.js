@@ -5,6 +5,7 @@
 
 const { WORD_STATUS, handleCorrect, handleIncorrect, MAX_REVIEW_LEVEL } = require('./constants')
 const userStorage = require('./user-storage')
+const phonetic = require('./phonetic')
 
 const LEGACY_STORAGE_KEY = 'vocab_words'
 const LEGACY_CLAIM_SCOPE = 'vocab_words'
@@ -82,14 +83,25 @@ function normalizeMeta(meta) {
 
 function normalizeWord(word, userId) {
   const timestamp = now()
+  const wordText = word.word || ''
+  const defaultSkill = { correctCount: 0, totalAttempts: 0, lastPracticedAt: 0 }
+  const skillStats = word.skillStats || {}
   return {
     id: word.id || generateId(),
-    word: word.word || '',
+    word: wordText,
     ownerId: word.ownerId || userId,
     status: word.status || WORD_STATUS.NEW,
     reviewLevel: Number.isFinite(word.reviewLevel) ? word.reviewLevel : 0,
-    content: word.content || {},
+    content: phonetic.ensureContentPhonetic(wordText, word.content || {}),
     audio: word.audio || { wordAudio: '', clozeAudio: '', fullAudio: '' },
+    pronunciationRecords: Array.isArray(word.pronunciationRecords) ? word.pronunciationRecords : [],
+    skillStats: {
+      recognition: { ...defaultSkill, ...(skillStats.recognition || {}) },
+      dictation: { ...defaultSkill, ...(skillStats.dictation || {}) },
+      recall: { ...defaultSkill, ...(skillStats.recall || {}) },
+      context: { ...defaultSkill, ...(skillStats.context || {}) }
+    },
+    mistakes: Array.isArray(word.mistakes) ? word.mistakes : [],
     stats: {
       correctCount: 0,
       totalAttempts: 0,
@@ -100,6 +112,63 @@ function normalizeWord(word, userId) {
     createdAt: word.createdAt || timestamp,
     updatedAt: word.updatedAt || timestamp
   }
+}
+
+function addPronunciationRecord(id, record) {
+  const word = loadWord(id)
+  if (!word) return null
+
+  const timestamp = now()
+  const item = {
+    id: record.id || generateId(),
+    fileID: record.fileID || '',
+    duration: record.duration || 0,
+    createdAt: record.createdAt || timestamp,
+    word: record.word || word.word,
+    source: record.source || 'word-detail'
+  }
+
+  return updateWord(id, {
+    pronunciationRecords: [...(word.pronunciationRecords || []), item]
+  })
+}
+
+function deletePronunciationRecord(id, recordId) {
+  const word = loadWord(id)
+  if (!word) return null
+  return updateWord(id, {
+    pronunciationRecords: (word.pronunciationRecords || []).filter(record => record.id !== recordId)
+  })
+}
+
+function recordSkillPractice(id, mode, isCorrect, details = {}) {
+  const word = loadWord(id)
+  if (!word) return null
+  const safeMode = ['recognition', 'dictation', 'recall', 'context'].includes(mode) ? mode : 'recognition'
+  const timestamp = now()
+  const existing = (word.skillStats && word.skillStats[safeMode]) || {}
+  const skillStats = {
+    ...(word.skillStats || {}),
+    [safeMode]: {
+      correctCount: (existing.correctCount || 0) + (isCorrect ? 1 : 0),
+      totalAttempts: (existing.totalAttempts || 0) + 1,
+      lastPracticedAt: timestamp
+    }
+  }
+  const mistakes = isCorrect
+    ? (word.mistakes || [])
+    : [
+        ...(word.mistakes || []),
+        {
+          mode: safeMode,
+          answer: details.answer || '',
+          expected: details.expected || word.word,
+          reason: details.reason || '未作答',
+          createdAt: timestamp
+        }
+      ]
+
+  return updateWord(id, { skillStats, mistakes })
 }
 
 function saveIndex() {
@@ -393,6 +462,7 @@ function searchWords(query) {
   return getAllWords().filter(w => {
     const content = w.content || {}
     return (w.word || '').toLowerCase().includes(q) ||
+      (content.phonetic && content.phonetic.toLowerCase().includes(q)) ||
       (content.chineseHint && content.chineseHint.includes(q)) ||
       (content.shortDefinition && content.shortDefinition.toLowerCase().includes(q))
   })
@@ -485,7 +555,18 @@ function callSyncData(payload) {
     wx.cloud.callFunction({
       name: 'syncData',
       data: payload,
-      success: res => resolve(res.result || {}),
+      success: res => {
+        const result = res.result || {}
+        if (result.skipped) {
+          resolve(result)
+          return
+        }
+        if (!result.success) {
+          reject(new Error(result.error || '数据同步失败'))
+          return
+        }
+        resolve(result)
+      },
       fail: err => reject(err)
     })
   })
@@ -527,7 +608,12 @@ function flushPendingSync(options = {}) {
   const sentDeletedIds = deletedIds.slice()
   return callSyncData(payload).then(result => {
     if (result && result.success) {
-      removeSyncedIds(sentDirtyIds, sentDeletedIds)
+      // 只有确实有记录成功同步，才清除脏标记
+      const wordSynced = result.words && result.words.synced > 0 ? result.words.synced : 0
+      const deletedOk = result.deletedWords && result.deletedWords.deleted > 0 ? result.deletedWords.deleted : 0
+      if (wordSynced > 0 || deletedOk > 0) {
+        removeSyncedIds(sentDirtyIds, sentDeletedIds)
+      }
     }
     return result
   })
@@ -568,6 +654,9 @@ module.exports = {
   searchWords,
   getStats,
   recordReviewResult,
+  recordSkillPractice,
+  addPronunciationRecord,
+  deletePronunciationRecord,
   getRecentRecords,
   mixNewWords,
   generateId,

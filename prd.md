@@ -153,7 +153,7 @@
 Word {
   id, word, status(new|learning|mastered),
   reviewLevel(0-7),
-  content: { shortDefinition, chineseHint, examples[], clozeExample,
+  content: { phonetic, shortDefinition, chineseHint, examples[], clozeExample,
              collocations[], rootAffix, synonyms[], antonyms[],
              memoryTip, difficulty(1-5) },
   audio: { wordAudio, clozeAudio, fullAudio },

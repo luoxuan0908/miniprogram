@@ -1,13 +1,60 @@
 <!--pages/resource-detail/resource-detail.wxml-->
-<view class="reader-page {{showPlayerPanel ? 'player-open' : ''}}" wx:if="{{resource}}">
+<view class="reader-page {{showPlayerPanel || showShadowPanel ? 'player-open' : ''}}" wx:if="{{resource}}">
   <view class="reader-shell">
     <view class="reader-top">
-      <view class="tool-btn">⚙</view>
+      <view class="tool-btn" bindtap="onOpenAudioSettings">⚙</view>
       <view class="doc-title">{{resource.title}}</view>
-      <view class="tool-btn">⋮</view>
+      <view class="tool-btn" bindtap="onGenerateStudyPack">精</view>
     </view>
 
     <scroll-view class="segment-scroll" scroll-y>
+      <view class="study-pack">
+        <view class="study-pack-head">
+          <view>
+            <view class="study-title">精读任务</view>
+            <view class="study-subtitle">{{resource.studyPack ? '关键词、难句和听写练习' : '把文档变成轻量课程'}}</view>
+          </view>
+          <view class="study-generate" bindtap="onGenerateStudyPack">{{isGeneratingStudyPack ? '生成中' : (resource.studyPack ? '重新生成' : '生成')}}</view>
+        </view>
+
+        <view wx:if="{{resource.studyPack}}">
+          <view class="study-block" wx:if="{{resource.studyPack.keyWords.length}}">
+            <view class="study-label">重点词</view>
+            <view class="keyword-row" wx:for="{{resource.studyPack.keyWords}}" wx:key="word">
+              <view>
+                <view class="keyword-word">{{item.word}}</view>
+                <view class="keyword-hint">{{item.chineseHint}} {{item.reason}}</view>
+              </view>
+              <view class="add-word-mini" bindtap="onAddStudyWord" data-word="{{item.word}}" data-hint="{{item.chineseHint}}">加入</view>
+            </view>
+          </view>
+
+          <view class="study-block" wx:if="{{resource.studyPack.hardSentences.length}}">
+            <view class="study-label">难句拆解</view>
+            <view class="sentence-card" wx:for="{{resource.studyPack.hardSentences}}" wx:key="sentence">
+              <view class="sentence-text">{{item.sentence}}</view>
+              <view class="sentence-note">{{item.explanation}}</view>
+            </view>
+          </view>
+
+          <view class="study-block" wx:if="{{resource.studyPack.dictationSentences.length}}">
+            <view class="study-label">听写句</view>
+            <view class="sentence-card" wx:for="{{resource.studyPack.dictationSentences}}" wx:key="sentence">
+              <view class="sentence-text">{{item.sentence}}</view>
+              <view class="sentence-note">{{item.hint}}</view>
+            </view>
+          </view>
+
+          <view class="study-block" wx:if="{{resource.studyPack.segmentSummaries.length}}">
+            <view class="study-label">每段大意</view>
+            <view class="sentence-card" wx:for="{{resource.studyPack.segmentSummaries}}" wx:key="index">
+              <view class="sentence-text">#{{item.index}}</view>
+              <view class="sentence-note">{{item.summary}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
       <view
         class="segment {{activeSegmentIndex === item.index ? 'active' : ''}}"
         wx:for="{{resource.segments}}"
@@ -18,12 +65,51 @@
           <text class="mini-play" bindtap="onPlaySegment" data-index="{{item.index}}">
             {{isPlaying && playingSegmentIndex === item.index ? 'Ⅱ' : '▷'}}
           </text>
+          <text class="shadow-btn" bindtap="onOpenShadowPanel" data-index="{{item.index}}">
+            跟读 {{item.shadowCount || 0}}
+          </text>
           <text class="translate-btn" bindtap="onToggleTranslation" data-index="{{item.index}}">文A</text>
           <text class="audio-status" wx:if="{{item.audioStatus === 'generating'}}">生成中</text>
         </view>
 
+        <view class="segment-images" wx:if="{{item.imagesBefore.length}}">
+          <view class="segment-image-item" wx:for="{{item.imagesBefore}}" wx:for-item="image" wx:key="src">
+            <image
+              wx:if="{{!image.hasError}}"
+              class="segment-image"
+              src="{{image.src}}"
+              mode="widthFix"
+              lazy-load="{{true}}"
+              show-menu-by-longpress="{{true}}"
+              bindtap="onPreviewImage"
+              binderror="onImageError"
+              data-src="{{image.src}}"
+            />
+            <view class="image-error" wx:else>图片加载失败</view>
+            <view class="image-caption" wx:if="{{image.alt}}">{{image.alt}}</view>
+          </view>
+        </view>
+
         <view class="segment-text" bindtap="onPlaySegment" data-index="{{item.index}}">
           {{item.text}}
+        </view>
+
+        <view class="segment-images after" wx:if="{{item.imagesAfter.length}}">
+          <view class="segment-image-item" wx:for="{{item.imagesAfter}}" wx:for-item="image" wx:key="src">
+            <image
+              wx:if="{{!image.hasError}}"
+              class="segment-image"
+              src="{{image.src}}"
+              mode="widthFix"
+              lazy-load="{{true}}"
+              show-menu-by-longpress="{{true}}"
+              bindtap="onPreviewImage"
+              binderror="onImageError"
+              data-src="{{image.src}}"
+            />
+            <view class="image-error" wx:else>图片加载失败</view>
+            <view class="image-caption" wx:if="{{image.alt}}">{{image.alt}}</view>
+          </view>
         </view>
 
         <view class="translation" wx:if="{{item.translationOpen && item.isTranslating && !item.translation}}">
@@ -52,6 +138,94 @@
     <view class="player-actions">
       <view class="square-btn" bindtap="onRestartCurrent">↻</view>
       <view class="square-btn" bindtap="onClosePlayer">×</view>
+    </view>
+  </view>
+
+  <view class="shadow-panel" wx:if="{{showShadowPanel && currentShadowSegment}}">
+    <view class="shadow-head">
+      <view>
+        <view class="shadow-title">片段跟读 #{{currentShadowSegment.index}}</view>
+        <view class="shadow-meta">{{currentShadowSegment.shadowCount || 0}} 条录音</view>
+      </view>
+      <view class="shadow-close" bindtap="onCloseShadowPanel">×</view>
+    </view>
+    <view class="shadow-text">{{currentShadowSegment.text}}</view>
+
+    <view class="shadow-actions">
+      <view class="shadow-action dark" bindtap="onPlayShadowOrigin">
+        {{isPlaying && playingSegmentIndex === currentShadowSegment.index && !playingShadowRecordingId ? '暂停原音' : '播放原音'}}
+      </view>
+      <view class="shadow-action" wx:if="{{!isShadowRecording}}" bindtap="onStartShadowRecording">开始跟读</view>
+      <view class="shadow-action danger" wx:else bindtap="onStopShadowRecording">停止录音</view>
+    </view>
+
+    <view class="shadow-draft" wx:if="{{shadowRecordingTempPath}}">
+      <text>待保存录音 · {{shadowRecordingDuration}}s</text>
+      <view class="shadow-draft-actions">
+        <text bindtap="onPreviewShadowRecording">{{playingShadowRecordingId === 'draft' ? '暂停' : '试听'}}</text>
+        <text bindtap="onSaveShadowRecording">{{isUploadingShadowRecording ? '保存中' : '保存'}}</text>
+      </view>
+    </view>
+
+    <view class="shadow-record-list" wx:if="{{currentShadowSegment.shadowRecords.length > 0}}">
+      <view class="shadow-record-row" wx:for="{{currentShadowSegment.shadowRecords}}" wx:key="id">
+        <view>
+          <view class="shadow-record-title">跟读 {{index + 1}}</view>
+          <view class="shadow-record-meta">{{item.duration || 0}}s · {{item.source}}</view>
+        </view>
+        <view class="shadow-record-actions">
+          <text bindtap="onPlayShadowRecording" data-id="{{item.id}}" data-file="{{item.fileID}}">
+            {{playingShadowRecordingId === item.id ? '暂停' : '播放'}}
+          </text>
+          <text bindtap="onDeleteShadowRecording" data-id="{{item.id}}" data-file="{{item.fileID}}">删除</text>
+        </view>
+      </view>
+    </view>
+    <view class="shadow-empty" wx:else>播放原音后跟读，满意再保存。</view>
+  </view>
+
+  <view class="settings-mask" wx:if="{{showAudioSettings}}" catchtap="onCloseAudioSettings">
+    <view class="audio-settings-panel" catchtap="noop">
+      <view class="settings-head">
+        <view class="settings-title">朗读设置</view>
+        <view class="settings-close" bindtap="onCloseAudioSettings">×</view>
+      </view>
+
+      <view class="settings-row-control">
+        <view>
+          <view class="control-label">声音</view>
+          <view class="control-sub">{{ttsVoiceDesc}}</view>
+        </view>
+        <picker
+          mode="selector"
+          range="{{voiceOptions}}"
+          range-key="name"
+          value="{{ttsVoiceIndex}}"
+          bindchange="onVoiceChange"
+        >
+          <view class="voice-picker">{{ttsVoiceLabel}}</view>
+        </picker>
+      </view>
+
+      <view class="settings-row-control vertical">
+        <view class="control-line">
+          <view>
+            <view class="control-label">语速</view>
+            <view class="control-sub">播放时即时生效</view>
+          </view>
+          <view class="speed-value">{{ttsSpeedLabel}}</view>
+        </view>
+        <slider
+          min="50"
+          max="200"
+          value="{{ttsSpeed}}"
+          activeColor="#2f6eea"
+          backgroundColor="#d8dadd"
+          block-color="#2f6eea"
+          bindchanging="onTtsSpeedChanging"
+          bindchange="onTtsSpeedChange"
+        />
+      </view>
     </view>
   </view>
 </view>

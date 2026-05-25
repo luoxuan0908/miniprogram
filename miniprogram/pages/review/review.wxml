@@ -1,59 +1,73 @@
 <!--pages/review/review.wxml-->
 <view class="me-page">
+  <!-- 用户信息卡片 -->
+  <view class="user-profile-card">
+    <view class="profile-avatar-wrap">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <image wx:if="{{avatarUrl}}" class="profile-avatar" src="{{avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="profile-avatar default-avatar">{{nickName ? nickName.slice(0, 1) : '?'}}</view>
+      </button>
+    </view>
+    <view class="profile-info">
+      <input class="profile-name" type="nickname" value="{{nickName}}" placeholder="点击设置昵称" bindblur="onNicknameInput" />
+      <text class="profile-id">ID: {{userId}}</text>
+    </view>
+  </view>
+
   <view class="stats-grid">
     <view class="stat-card" bindtap="onOpenDocuments">
       <view class="stat-icon black">▤</view>
       <view class="stat-label">文档</view>
       <view class="stat-value">{{resourceStats.documents}}</view>
     </view>
-    <view class="stat-card">
-      <view class="stat-icon blue">◌</view>
-      <view class="stat-label">段落</view>
-      <view class="stat-value">{{resourceStats.segments}}</view>
-    </view>
     <view class="stat-card" bindtap="onOpenVocabulary">
       <view class="stat-icon black">▣</view>
       <view class="stat-label">总词汇</view>
       <view class="stat-value">{{vocabStats.total}}</view>
     </view>
-    <view class="stat-card">
+    <view class="stat-card" bindtap="onOpenMastered">
       <view class="stat-icon green">✓</view>
       <view class="stat-label">已掌握</view>
       <view class="stat-value">{{vocabStats.mastered}}</view>
     </view>
-    <view class="stat-card">
+    <view class="stat-card" bindtap="onOpenLearning">
       <view class="stat-icon amber">↗</view>
       <view class="stat-label">学习中</view>
       <view class="stat-value">{{vocabStats.learning}}</view>
     </view>
-    <view class="stat-card">
+    <view class="stat-card" bindtap="onOpenDue">
       <view class="stat-icon red">◷</view>
       <view class="stat-label">今日待复习</view>
       <view class="stat-value">{{vocabStats.due}}</view>
     </view>
+    <view class="stat-card">
+      <view class="stat-icon blue">◴</view>
+      <view class="stat-label">今日时长</view>
+      <view class="stat-value duration-value">{{durationStats.todayLabel}}</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-icon black">∑</view>
+      <view class="stat-label">累计时长</view>
+      <view class="stat-value duration-value">{{durationStats.totalLabel}}</view>
+    </view>
   </view>
 
-  <view class="section-title">
-    <text class="section-icon">⚙</text>
-    <text>偏好设置</text>
-  </view>
-
-  <view class="prefs-panel">
-    <view class="pref-label">语速</view>
-    <slider
-      min="50"
-      max="200"
-      value="{{ttsSpeed}}"
-      activeColor="#000000"
-      backgroundColor="#c9cbd0"
-      block-color="#000000"
-      bindchange="onTtsSpeedChange"
-    />
-    <view class="speed-value">{{ttsSpeedLabel}}</view>
-
+  <view class="billing-panel" bindtap="onOpenBilling">
+    <view>
+      <view class="billing-label">AI 余额</view>
+      <view class="billing-value">{{billingSummary.ready ? '¥' : ''}}{{billingSummary.balanceLabel}}</view>
+    </view>
+    <view class="billing-side">
+      <view class="billing-side-label">累计扣费</view>
+      <view class="billing-side-value">¥{{billingSummary.chargedLabel}}</view>
+    </view>
   </view>
 
   <view class="settings-list">
+    <view class="settings-row" bindtap="onOpenBilling">
+      <text>AI 余额与用量明细</text>
+      <text class="settings-arrow">→</text>
+    </view>
     <view class="settings-row" bindtap="onSyncToCloud">
       <text>{{syncing ? '同步中...' : '上传数据到云端'}}</text>
       <text class="settings-arrow">↑</text>
@@ -69,6 +83,10 @@
     <view class="settings-row" bindtap="onClearAudioCache">
       <text>清除文档音频缓存</text>
       <text class="settings-meta">{{resourceStats.cachedAudio}}</text>
+    </view>
+    <view class="settings-row" bindtap="onOpenAdmin">
+      <text>管理工具</text>
+      <text class="settings-arrow">→</text>
     </view>
   </view>
 </view>

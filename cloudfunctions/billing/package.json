@@ -1,0 +1,9 @@
+{
+  "name": "billing",
+  "version": "1.0.0",
+  "description": "Personal RMB balance billing ledger for model calls",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "latest"
+  }
+}

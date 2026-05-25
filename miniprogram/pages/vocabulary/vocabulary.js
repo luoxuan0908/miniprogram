@@ -1,6 +1,7 @@
 const storage = require('../../utils/storage')
-const { WORD_STATUS } = require('../../utils/constants')
+const { WORD_STATUS, MAX_REVIEW_LEVEL } = require('../../utils/constants')
 const cloud = require('../../utils/cloud')
+const studyDuration = require('../../utils/study-duration')
 
 Page({
   data: {
@@ -13,23 +14,42 @@ Page({
     loading: true
   },
 
+  onLoad(options) {
+    if (options && options.tab) {
+      this.setData({ activeTab: options.tab })
+    }
+  },
+
   onShow() {
+    studyDuration.startSession('vocabulary')
     this.loadWords()
     this.hydrateWordsIfEmpty()
+  },
+
+  onHide() {
+    studyDuration.stopSession('vocabulary')
+  },
+
+  onUnload() {
+    studyDuration.stopSession('vocabulary')
   },
 
   loadWords() {
     this.setData({ loading: true })
     const allWords = storage.getAllWords()
+    const now = Date.now()
     const tabCounts = {
       all: allWords.length,
       new: allWords.filter(w => w.status === WORD_STATUS.NEW).length,
       learning: allWords.filter(w => w.status === WORD_STATUS.LEARNING).length,
-      mastered: allWords.filter(w => w.status === WORD_STATUS.MASTERED).length
+      mastered: allWords.filter(w => w.status === WORD_STATUS.MASTERED).length,
+      due: allWords.filter(w => w.reviewLevel < MAX_REVIEW_LEVEL && w.stats && w.stats.nextReview <= now).length
     }
 
     let words = this.data.searchQuery ? storage.searchWords(this.data.searchQuery) : allWords
-    if (this.data.activeTab !== 'all') {
+    if (this.data.activeTab === 'due') {
+      words = words.filter(w => w.reviewLevel < MAX_REVIEW_LEVEL && w.stats && w.stats.nextReview <= now)
+    } else if (this.data.activeTab !== 'all') {
       words = words.filter(w => w.status === this.data.activeTab)
     }
 

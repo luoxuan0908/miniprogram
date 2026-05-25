@@ -1,6 +1,8 @@
 const storage = require('../../utils/storage')
 const cloud = require('../../utils/cloud')
+const phonetic = require('../../utils/phonetic')
 const { DIFFICULTY_LABELS } = require('../../utils/constants')
+const studyDuration = require('../../utils/study-duration')
 
 Page({
   data: {
@@ -9,6 +11,18 @@ Page({
     generatedContent: null,
     errorMsg: '',
     difficultyLabels: DIFFICULTY_LABELS
+  },
+
+  onShow() {
+    studyDuration.startSession('add-word')
+  },
+
+  onHide() {
+    studyDuration.stopSession('add-word')
+  },
+
+  onUnload() {
+    studyDuration.stopSession('add-word')
   },
 
   onInput(e) {
@@ -29,7 +43,11 @@ Page({
     this.setData({ isGenerating: true, errorMsg: '', generatedContent: null })
 
     try {
-      const content = await cloud.generateContent(word)
+      const content = phonetic.ensureContentPhonetic(word, await cloud.generateContent(word))
+      if (!content.phonetic) {
+        const generatedPhonetic = await cloud.generatePhonetic(word).catch(() => '')
+        content.phonetic = phonetic.normalizePhonetic(generatedPhonetic)
+      }
       this.setData({
         generatedContent: content,
         isGenerating: false
@@ -60,7 +78,7 @@ Page({
 
     storage.addWord({
       word: word,
-      content: this.data.generatedContent
+      content: phonetic.ensureContentPhonetic(word, this.data.generatedContent)
     })
 
     wx.hideLoading()

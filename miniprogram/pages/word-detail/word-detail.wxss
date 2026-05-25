@@ -15,12 +15,30 @@
   margin-bottom: 16rpx;
 }
 
+.word-title-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
 .word-name {
   font-size: 48rpx;
   font-weight: 800;
 }
 
+.word-phonetic {
+  color: #6f7582;
+  font-size: 28rpx;
+  line-height: 1.35;
+}
+
+.word-phonetic.muted {
+  color: #9aa0aa;
+}
+
 .tag {
+  flex-shrink: 0;
   font-size: 22rpx;
   padding: 4rpx 16rpx;
   border-radius: 8rpx;
@@ -142,6 +160,15 @@
   color: #555;
 }
 
+.info-value.phonetic {
+  color: #39465a;
+  font-weight: 700;
+}
+
+.info-value.muted {
+  color: #9aa0aa;
+}
+
 /* 例句 */
 .example-item {
   padding: 22rpx 0;
@@ -240,6 +267,89 @@
   font-size: 26rpx;
   color: #8c6d00;
   line-height: 1.6;
+}
+
+.pronunciation-card {
+  border: 1rpx solid #e5e8ee;
+}
+
+.pronunciation-actions,
+.draft-actions,
+.recording-actions,
+.skill-grid {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.pronunciation-actions,
+.skill-grid {
+  flex-wrap: wrap;
+}
+
+.practice-btn,
+.skill-chip {
+  min-height: 64rpx;
+  padding: 0 22rpx;
+  border-radius: 10rpx;
+  background: #f2f4f7;
+  color: #111217;
+  font-size: 25rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.practice-btn.dark {
+  background: #111217;
+  color: #ffffff;
+}
+
+.practice-btn.danger {
+  background: #ff4d4f;
+  color: #ffffff;
+}
+
+.draft-recording,
+.recording-row,
+.empty-recordings {
+  margin-top: 16rpx;
+  padding: 18rpx;
+  border-radius: 10rpx;
+  background: #f7f8fa;
+  color: #4a5260;
+  font-size: 25rpx;
+}
+
+.draft-recording,
+.recording-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.draft-actions,
+.recording-actions {
+  flex-shrink: 0;
+  color: #2f6eea;
+  font-weight: 800;
+}
+
+.recording-list {
+  margin-top: 6rpx;
+}
+
+.recording-title {
+  color: #111217;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.recording-meta {
+  margin-top: 4rpx;
+  color: #8a8f99;
+  font-size: 22rpx;
 }
 
 /* 学习统计 */

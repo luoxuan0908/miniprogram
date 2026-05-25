@@ -1,0 +1,140 @@
+<!--pages/course-item-detail/course-item-detail.wxml-->
+<view class="item-page">
+  <!-- 通用头部 -->
+  <view class="item-header">
+    <view class="item-number">#{{index}}</view>
+    <view class="item-phrase">{{item.title}}</view>
+  </view>
+
+  <!-- ====== phrase 模板：词汇/短语/习语/搭配通用 ====== -->
+  <block wx:if="{{detailTemplate === 'phrase'}}">
+    <!-- 释义 -->
+    <view class="section" wx:if="{{item.definition}}">
+      <view class="section-title">释义</view>
+      <view class="def-cn" wx:if="{{item.definition.cn}}">{{item.definition.cn}}</view>
+      <view class="def-en" wx:if="{{item.definition.en}}">{{item.definition.en}}</view>
+    </view>
+
+    <!-- 音标和词性（essay-vocab 等课程有此字段） -->
+    <view class="section" wx:if="{{item.extra && (item.extra.phonetic || item.extra.pos)}}">
+      <view class="section-title">词性信息</view>
+      <view class="meta-row" wx:if="{{item.extra.phonetic}}">
+        <text class="meta-label">音标</text>
+        <text class="meta-value">{{item.extra.phonetic}}</text>
+      </view>
+      <view class="meta-row" wx:if="{{item.extra.pos}}">
+        <text class="meta-label">词性</text>
+        <text class="meta-value">{{item.extra.pos}}</text>
+      </view>
+    </view>
+
+    <!-- 词源/起源（习语等课程有此字段） -->
+    <view class="section" wx:if="{{item.extra && item.extra.origin && (item.extra.origin.cn || item.extra.origin.en)}}">
+      <view class="section-title">词源</view>
+      <view class="origin-text" wx:if="{{item.extra.origin.cn}}">{{item.extra.origin.cn}}</view>
+      <view class="origin-text origin-en" wx:if="{{item.extra.origin.en}}">{{item.extra.origin.en}}</view>
+    </view>
+
+    <!-- 短语动词结构信息 -->
+    <view class="section" wx:if="{{item.extra && (item.extra.verb || item.extra.particle)}}">
+      <view class="section-title">结构</view>
+      <view class="meta-row" wx:if="{{item.extra.verb}}">
+        <text class="meta-label">动词</text>
+        <text class="meta-value">{{item.extra.verb}}</text>
+      </view>
+      <view class="meta-row" wx:if="{{item.extra.particle}}">
+        <text class="meta-label">小品词</text>
+        <text class="meta-value">{{item.extra.particle}}</text>
+      </view>
+    </view>
+
+    <!-- 例句 -->
+    <view class="section" wx:if="{{item.examples && item.examples.length > 0}}">
+      <view class="section-title">例句</view>
+      <view class="example-list">
+        <view class="example-item" wx:for="{{item.examples}}" wx:key="index" wx:for-index="idx" wx:for-item="ex">
+          <view class="example-row">
+            <view class="example-text">
+              <view class="example-en">{{ex.en}}</view>
+              <view class="example-cn">{{ex.cn}}</view>
+            </view>
+            <view class="play-btn" bindtap="onPlayExample" data-index="{{idx}}" data-text="{{ex.en}}" data-audio="{{ex.audio}}">▶</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ====== dialogue 模板：对话类课程 ====== -->
+  <block wx:elif="{{detailTemplate === 'dialogue'}}">
+    <!-- 对话场景说明 -->
+    <view class="section" wx:if="{{item.definition}}">
+      <view class="section-title">场景</view>
+      <view class="def-cn" wx:if="{{item.definition.cn}}">{{item.definition.cn}}</view>
+      <view class="def-en" wx:if="{{item.definition.en}}">{{item.definition.en}}</view>
+    </view>
+    <!-- 对话轮次 -->
+    <view class="section" wx:if="{{item.extra && item.extra.dialogue}}">
+      <view class="section-title">对话</view>
+      <view class="dialogue-list">
+        <view class="dialogue-turn {{turn.role === 'A' ? 'role-a' : 'role-b'}}" 
+              wx:for="{{item.extra.dialogue}}" wx:for-item="turn" wx:key="index">
+          <view class="role-badge">{{turn.role}}</view>
+          <view class="dialogue-text">
+            <view class="dialogue-en">{{turn.en}}</view>
+            <view class="dialogue-cn" wx:if="{{turn.cn}}">{{turn.cn}}</view>
+          </view>
+          <view class="play-btn" bindtap="onPlayExample" data-text="{{turn.en}}">▶</view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ====== grammar 模板：语法类课程 ====== -->
+  <block wx:elif="{{detailTemplate === 'grammar'}}">
+    <!-- 语法规则 -->
+    <view class="section" wx:if="{{item.definition}}">
+      <view class="section-title">规则</view>
+      <view class="def-cn" wx:if="{{item.definition.cn}}">{{item.definition.cn}}</view>
+      <view class="def-en" wx:if="{{item.definition.en}}">{{item.definition.en}}</view>
+    </view>
+    <!-- 语法公式 -->
+    <view class="section" wx:if="{{item.extra && item.extra.formula}}">
+      <view class="section-title">公式</view>
+      <view class="formula-box">{{item.extra.formula}}</view>
+    </view>
+    <!-- 例句 -->
+    <view class="section" wx:if="{{item.examples && item.examples.length > 0}}">
+      <view class="section-title">例句</view>
+      <view class="example-list">
+        <view class="example-item" wx:for="{{item.examples}}" wx:key="index" wx:for-index="idx" wx:for-item="ex">
+          <view class="example-row">
+            <view class="example-text">
+              <view class="example-en">{{ex.en}}</view>
+              <view class="example-cn">{{ex.cn}}</view>
+            </view>
+            <view class="play-btn" bindtap="onPlayExample" data-index="{{idx}}" data-text="{{ex.en}}" data-audio="{{ex.audio}}">▶</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ====== 通用区域：标签 + 操作按钮 ====== -->
+  <view class="section" wx:if="{{item.tags && item.tags.length > 0}}">
+    <view class="section-title">标签</view>
+    <view class="tag-list">
+      <text class="tag" wx:for="{{item.tags}}" wx:for-item="tag" wx:key="*this">{{tag}}</text>
+    </view>
+  </view>
+
+  <view class="actions">
+    <view class="action-btn action-learning {{currentStatus === 'learning' ? 'active' : ''}}" bindtap="onMarkLearning">
+      {{currentStatus === 'learning' ? '学习中' : '标记学习中'}}
+    </view>
+    <view class="action-btn action-mastered {{currentStatus === 'mastered' ? 'active' : ''}}" bindtap="onMarkMastered">
+      {{currentStatus === 'mastered' ? '已掌握' : '标记已掌握'}}
+    </view>
+    <view class="action-btn action-vocab" bindtap="onAddToVocab">加入生词本</view>
+  </view>
+</view>

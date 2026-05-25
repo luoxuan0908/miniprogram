@@ -1,0 +1,268 @@
+.daily-page {
+  min-height: 100vh;
+  background: #ffffff;
+  padding: 44rpx 32rpx 120rpx;
+  box-sizing: border-box;
+}
+
+.daily-title {
+  color: #111217;
+  font-size: 46rpx;
+  font-weight: 850;
+}
+
+.daily-subtitle {
+  margin-top: 12rpx;
+  color: #6f7582;
+  font-size: 27rpx;
+}
+
+.progress-bar {
+  height: 10rpx;
+  border-radius: 999rpx;
+  background: #eef0f3;
+  margin: 34rpx 0;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #111217;
+}
+
+.task-card,
+.done-card {
+  border: 1rpx solid #dfe3e8;
+  border-radius: 12rpx;
+  padding: 32rpx;
+}
+
+.task-type {
+  color: #7a8494;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.task-title,
+.done-title {
+  margin-top: 16rpx;
+  color: #111217;
+  font-size: 38rpx;
+  font-weight: 850;
+}
+
+.task-desc,
+.done-desc {
+  margin-top: 14rpx;
+  color: #556070;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.done-duration {
+  margin-top: 22rpx;
+  color: #111217;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.task-prompt {
+  margin-top: 18rpx;
+  padding: 22rpx;
+  border-radius: 10rpx;
+  background: #f6f8fb;
+  color: #111217;
+  font-size: 29rpx;
+  line-height: 1.6;
+}
+
+.shadow-task {
+  margin-top: 22rpx;
+  padding: 22rpx;
+  border-radius: 10rpx;
+  border: 1rpx solid #dfe3e8;
+}
+
+.shadow-resource {
+  color: #111217;
+  font-size: 27rpx;
+  font-weight: 850;
+}
+
+.shadow-hint {
+  margin-top: 10rpx;
+  color: #6f7582;
+  font-size: 25rpx;
+  line-height: 1.5;
+}
+
+.shadow-open-btn {
+  margin-top: 20rpx;
+}
+
+.audio-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10rpx;
+  margin-top: 18rpx;
+  padding: 14rpx 24rpx;
+  border-radius: 10rpx;
+  background: #f6f8fb;
+}
+
+.audio-icon {
+  font-size: 30rpx;
+  flex-shrink: 0;
+}
+
+.audio-label {
+  font-size: 26rpx;
+  color: #111217;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.answer-input {
+  margin-top: 22rpx;
+  min-height: 76rpx;
+  padding: 0 22rpx;
+  border: 1rpx solid #dfe3e8;
+  border-radius: 10rpx;
+  color: #111217;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.reason-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.reason-chip {
+  padding: 12rpx 18rpx;
+  border: 1rpx solid #dfe3e8;
+  border-radius: 999rpx;
+  color: #6f7582;
+  font-size: 24rpx;
+}
+
+.reason-chip.active {
+  border-color: #111217;
+  color: #111217;
+  font-weight: 800;
+}
+
+.task-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 32rpx;
+}
+
+.primary-btn,
+.secondary-btn {
+  flex: 1;
+  min-height: 78rpx;
+  border-radius: 10rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.primary-btn {
+  background: #111217;
+  color: #ffffff;
+}
+
+.secondary-btn {
+  border: 1rpx solid #dfe3e8;
+  color: #111217;
+}
+
+.answer-input.correct {
+  border-color: #2ecc71;
+  background: #f0fff4;
+}
+
+.answer-input.incorrect {
+  border-color: #e74c3c;
+  background: #fff5f5;
+}
+
+.result-hint {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.result-hint.correct {
+  color: #2ecc71;
+}
+
+.result-hint.incorrect {
+  color: #e74c3c;
+}
+
+.expected-answer {
+  margin-top: 10rpx;
+  font-size: 28rpx;
+  color: #111217;
+  font-weight: 800;
+}
+
+.recognition-answer {
+  margin-top: 18rpx;
+  padding: 22rpx;
+  border-radius: 10rpx;
+  background: #f6f8fb;
+}
+
+.recognition-answer .answer-word {
+  font-size: 32rpx;
+  font-weight: 850;
+  color: #111217;
+}
+
+.recognition-answer .answer-meaning {
+  margin-top: 8rpx;
+  font-size: 26rpx;
+  color: #556070;
+}
+
+.done-stats {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 24rpx;
+}
+
+.stat-item {
+  flex: 1;
+  text-align: center;
+  padding: 20rpx 0;
+  border-radius: 10rpx;
+  background: #f6f8fb;
+}
+
+.stat-num {
+  font-size: 36rpx;
+  font-weight: 850;
+}
+
+.stat-label {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #6f7582;
+}
+
+.stat-correct .stat-num { color: #2ecc71; }
+.stat-incorrect .stat-num { color: #e74c3c; }
+.stat-skipped .stat-num { color: #6f7582; }
+
+.reset-btn {
+  margin-top: 24rpx;
+}

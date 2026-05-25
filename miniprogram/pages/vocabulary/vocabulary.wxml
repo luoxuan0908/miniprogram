@@ -29,13 +29,17 @@
     <view class="filter {{activeTab === 'new' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="new">新词 {{tabCounts.new || 0}}</view>
     <view class="filter {{activeTab === 'learning' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="learning">学习中 {{tabCounts.learning || 0}}</view>
     <view class="filter {{activeTab === 'mastered' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="mastered">已掌握 {{tabCounts.mastered || 0}}</view>
+    <view class="filter {{activeTab === 'due' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="due">待复习 {{tabCounts.due || 0}}</view>
   </view>
 
   <view class="word-list" wx:if="{{words.length > 0}}">
     <view class="word-card" wx:for="{{words}}" wx:key="id">
       <view class="word-main" bindtap="onWordTap" data-id="{{item.id}}">
         <view class="word-row">
-          <text class="word-name">{{item.word}}</text>
+          <view class="word-title">
+            <text class="word-name">{{item.word}}</text>
+            <text class="word-phonetic" wx:if="{{item.content.phonetic}}">{{item.content.phonetic}}</text>
+          </view>
           <text class="status-badge badge-{{item.status}}">
             {{item.status === 'new' ? '新词' : item.status === 'learning' ? '学习中' : '已掌握'}}
           </text>

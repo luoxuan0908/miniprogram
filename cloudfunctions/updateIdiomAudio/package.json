@@ -1,0 +1,7 @@
+{
+  "name": "updateIdiomAudio",
+  "version": "1.0.0",
+  "description": "更新习语课程条目的音频字段",
+  "main": "index.js",
+  "dependencies": {}
+}

@@ -44,21 +44,44 @@
     <view class="modal-card" catchtap="noop">
       <view class="modal-close" bindtap="onCloseAddModal">×</view>
       <view class="modal-title">添加资源</view>
-      <view class="modal-subtitle">从网址或本地导入</view>
+      <view class="modal-subtitle">选择一种导入方式</view>
 
-      <view class="modal-form">
+      <view class="mode-tabs">
+        <view class="mode-tab {{addMode === 'url' ? 'active' : ''}}" bindtap="onModeTap" data-mode="url">网址</view>
+        <view class="mode-tab {{addMode === 'text' ? 'active' : ''}}" bindtap="onModeTap" data-mode="text">粘贴文本</view>
+        <view class="mode-tab {{addMode === 'file' ? 'active' : ''}}" bindtap="onModeTap" data-mode="file">文件</view>
+      </view>
+
+      <view class="modal-form" wx:if="{{addMode === 'url'}}">
         <input
           class="url-input"
           placeholder="https://"
           value="{{resourceUrl}}"
           bindinput="onUrlInput"
           placeholder-class="url-placeholder"
-          disabled="{{selectedFile !== null}}"
         />
-        <view class="file-btn" bindtap="onChooseFile">本地文件</view>
       </view>
 
-      <view class="selected-file" wx:if="{{selectedFile}}">
+      <view class="text-import" wx:if="{{addMode === 'text'}}">
+        <textarea
+          class="text-input"
+          placeholder="粘贴英文文章、段落或笔记"
+          value="{{pastedText}}"
+          bindinput="onTextInput"
+          maxlength="20000"
+          placeholder-class="url-placeholder"
+        />
+        <view class="paste-row">
+          <view class="file-btn" bindtap="onPasteFromClipboard">从剪贴板粘贴</view>
+          <text class="text-count">{{pastedText.length || 0}} / 20000</text>
+        </view>
+      </view>
+
+      <view class="file-import" wx:if="{{addMode === 'file'}}">
+        <view class="file-btn file-select-btn" bindtap="onChooseFile">选择 HTML/TXT 文件</view>
+      </view>
+
+      <view class="selected-file" wx:if="{{addMode === 'file' && selectedFile}}">
         <text>{{selectedFile.name}}</text>
         <text class="file-type">{{selectedFile.fileType}}</text>
       </view>

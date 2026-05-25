@@ -1,0 +1,89 @@
+<!--pages/course-detail/course-detail.wxml-->
+<scroll-view class="detail-page" scroll-y enhanced show-scrollbar="{{false}}" bindscrolltolower="onLoadMore" lower-threshold="300">
+  <!-- 课程信息 -->
+  <view class="course-info">
+    <view class="course-type-badge">{{typeConfig.label || course.type}}</view>
+    <view class="course-title">{{course.title}}</view>
+    <view class="course-subtitle" wx:if="{{course.subtitle}}">{{course.subtitle}}</view>
+    <view class="course-stats">
+      <text>共 {{course.totalItems}} {{typeConfig.itemUnit || '条'}}</text>
+      <text wx:if="{{stats.masteredCount > 0}}"> · 已掌握 {{stats.masteredCount}}</text>
+      <text wx:if="{{stats.learningCount > 0}}"> · 学习中 {{stats.learningCount}}</text>
+    </view>
+    <view class="progress-bar-lg" wx:if="{{stats.masteredCount > 0}}">
+      <view class="progress-fill" style="width: {{stats.progressPercent}}%"></view>
+    </view>
+  </view>
+
+  <!-- 章节选择器（三级结构课程才显示） -->
+  <view class="section-tabs" wx:if="{{hasSections && sections.length > 0}}">
+    <view class="section-tab {{activeSectionIndex === -1 ? 'active' : ''}}" bindtap="onShowAllSections">全部</view>
+    <view class="section-tab {{activeSectionIndex === index ? 'active' : ''}}" 
+          wx:for="{{sections}}" wx:key="index" 
+          bindtap="onSectionTap" data-index="{{item.index}}">
+      {{item.title}}
+    </view>
+  </view>
+
+  <!-- 搜索 -->
+  <view class="search-row">
+    <text class="search-icon">⌕</text>
+    <input
+      class="search-input"
+      placeholder="搜索课程内容"
+      value="{{searchQuery}}"
+      bindinput="onSearch"
+      confirm-type="search"
+      placeholder-class="search-placeholder"
+    />
+    <view wx:if="{{searchQuery}}" class="clear-btn" bindtap="onClearSearch">×</view>
+  </view>
+
+  <!-- 状态筛选 -->
+  <view class="filter-row">
+    <view class="filter {{activeTab === 'all' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="all">全部</view>
+    <view class="filter {{activeTab === 'new' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="new">未学</view>
+    <view class="filter {{activeTab === 'learning' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="learning">学习中</view>
+    <view class="filter {{activeTab === 'mastered' ? 'active' : ''}}" bindtap="onFilterTap" data-tab="mastered">已掌握</view>
+  </view>
+
+  <!-- 条目列表 -->
+  <view class="item-list" wx:if="{{displayItems.length > 0}}">
+    <view class="item-card" wx:for="{{displayItems}}" wx:key="id" bindtap="onItemTap" data-id="{{item.id}}" data-index="{{item.index}}">
+      <view class="item-index">{{item.index}}</view>
+      <view class="item-main">
+        <view class="item-title-row">
+          <text class="item-title">{{item.title}}</text>
+          <text class="status-badge badge-{{progressMap[item.id] ? progressMap[item.id].status : 'new'}}">
+            {{progressMap[item.id] ? (progressMap[item.id].status === 'learning' ? '学习中' : progressMap[item.id].status === 'mastered' ? '已掌握' : '未学') : '未学'}}
+          </text>
+        </view>
+        <view class="item-def" wx:if="{{item.definition.cn}}">{{item.definition.cn}}</view>
+        <!-- 三级结构：显示所属章节 -->
+        <view class="item-section-hint" wx:if="{{item.extra && item.extra.sectionTitle}}">
+          {{item.extra.sectionTitle}}
+        </view>
+      </view>
+      <view class="item-arrow">→</view>
+    </view>
+  </view>
+
+  <!-- 底部加载状态 -->
+  <view class="bottom-status">
+    <view class="loading-state" wx:if="{{loadingMore}}">
+      <view class="loading-spinner"></view>
+      <text>加载中...</text>
+    </view>
+    <view class="no-more" wx:elif="{{!hasMore && displayItems.length > 0 && !searchQuery}}">
+      <text>已加载全部 {{items.length}} 条</text>
+    </view>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading && !loadingMore}}">
+    <text>加载中...</text>
+  </view>
+
+  <view class="empty-state" wx:if="{{displayItems.length === 0 && !loading}}">
+    <view class="empty-title">{{searchQuery ? '无匹配结果' : '暂无内容'}}</view>
+  </view>
+</scroll-view>

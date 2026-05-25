@@ -1,7 +1,10 @@
 <!--components/word-card/word-card.wxml-->
 <view class="word-card" bindtap="onTap">
   <view class="card-main">
-    <view class="word-text">{{word.word}}</view>
+    <view class="word-title">
+      <view class="word-text">{{word.word}}</view>
+      <view class="word-phonetic" wx:if="{{word.content.phonetic}}">{{word.content.phonetic}}</view>
+    </view>
     <view class="word-hint" wx:if="{{word.content.chineseHint}}">
       {{word.content.chineseHint}}
     </view>

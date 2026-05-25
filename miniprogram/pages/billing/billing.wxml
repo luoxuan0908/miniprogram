@@ -1,0 +1,36 @@
+<view class="billing-page">
+  <view class="balance-panel">
+    <view>
+      <view class="balance-label">AI 余额</view>
+      <view class="balance-value">¥{{account.balanceLabel}}</view>
+    </view>
+    <view class="balance-side">
+      <view class="side-label">累计扣费</view>
+      <view class="side-value">¥{{account.chargedLabel}}</view>
+    </view>
+  </view>
+
+  <view class="note-row">V1 暂不接充值，余额由后台赠送或调整。未配置价格的模型只记录用量，不扣余额。</view>
+
+  <view class="error-panel" wx:if="{{errorMessage}}">
+    <view class="error-title">{{errorMessage}}</view>
+    <view class="error-copy">{{setupHint}}</view>
+  </view>
+
+  <view class="section-title">用量明细</view>
+  <view class="ledger-list" wx:if="{{ledger.length > 0}}">
+    <view class="ledger-row" wx:for="{{ledger}}" wx:key="_id">
+      <view class="ledger-main">
+        <view class="ledger-title">{{item.title}}</view>
+        <view class="ledger-meta">{{item.timeLabel}} · {{item.modelKey}}</view>
+        <view class="ledger-meters">{{item.meterLabel}}</view>
+        <view class="ledger-status {{item.isUnpriced ? 'status-unpriced' : ''}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="ledger-amount {{item.isUnpriced ? 'amount-unpriced' : ''}}">{{item.amountLabel}}</view>
+    </view>
+  </view>
+  <view class="empty-state" wx:else>
+    暂无 AI 用量记录
+  </view>
+  <view class="load-more" wx:if="{{loadingMore}}">加载中...</view>
+</view>

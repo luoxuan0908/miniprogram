@@ -1,0 +1,9 @@
+{
+  "name": "uploadIdiomAudio",
+  "version": "1.0.0",
+  "description": "Batch download idiom MP3 from CDN and upload to cloud storage",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

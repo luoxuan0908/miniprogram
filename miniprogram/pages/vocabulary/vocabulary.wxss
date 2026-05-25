@@ -142,10 +142,24 @@
   gap: 16rpx;
 }
 
+.word-title {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10rpx;
+}
+
 .word-name {
   font-size: 34rpx;
   font-weight: 800;
   color: #111217;
+}
+
+.word-phonetic {
+  color: #6f7582;
+  font-size: 24rpx;
+  line-height: 1.35;
 }
 
 .status-badge {

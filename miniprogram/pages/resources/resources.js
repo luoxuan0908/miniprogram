@@ -1,5 +1,6 @@
 const cloud = require('../../utils/cloud')
 const resourceStorage = require('../../utils/resource-storage')
+const studyDuration = require('../../utils/study-duration')
 
 const SUPPORTED_EXTENSIONS = ['html', 'htm', 'txt']
 
@@ -9,7 +10,9 @@ Page({
     searchQuery: '',
     loading: false,
     showAddModal: false,
+    addMode: 'url',
     resourceUrl: '',
+    pastedText: '',
     selectedFile: null,
     isImporting: false
   },
@@ -23,8 +26,17 @@ Page({
   },
 
   onShow() {
+    studyDuration.startSession('resources')
     this.loadResources()
     this.hydrateResourcesIfEmpty()
+  },
+
+  onHide() {
+    studyDuration.stopSession('resources')
+  },
+
+  onUnload() {
+    studyDuration.stopSession('resources')
   },
 
   loadResources() {
@@ -46,7 +58,9 @@ Page({
   onOpenAddModal() {
     this.setData({
       showAddModal: true,
+      addMode: 'url',
       resourceUrl: '',
+      pastedText: '',
       selectedFile: null
     })
   },
@@ -70,10 +84,50 @@ Page({
 
   noop() {},
 
+  onModeTap(e) {
+    const mode = e.currentTarget.dataset.mode
+    if (this.data.isImporting || !mode) return
+
+    this.setData({
+      addMode: mode,
+      resourceUrl: mode === 'url' ? this.data.resourceUrl : '',
+      pastedText: mode === 'text' ? this.data.pastedText : '',
+      selectedFile: null
+    })
+  },
+
   onUrlInput(e) {
     this.setData({
       resourceUrl: e.detail.value,
       selectedFile: null
+    })
+  },
+
+  onTextInput(e) {
+    this.setData({
+      pastedText: e.detail.value,
+      resourceUrl: '',
+      selectedFile: null
+    })
+  },
+
+  onPasteFromClipboard() {
+    wx.getClipboardData({
+      success: res => {
+        const text = (res.data || '').trim()
+        if (!text) {
+          wx.showToast({ title: '剪贴板为空', icon: 'none' })
+          return
+        }
+
+        this.setData({
+          addMode: 'text',
+          pastedText: text,
+          resourceUrl: '',
+          selectedFile: null
+        })
+      },
+      fail: () => wx.showToast({ title: '读取剪贴板失败', icon: 'none' })
     })
   },
 
@@ -93,6 +147,7 @@ Page({
         }
 
         this.setData({
+          addMode: 'file',
           selectedFile: {
             name: file.name,
             path: file.path,
@@ -127,19 +182,34 @@ Page({
   async onConfirmAdd() {
     if (this.data.isImporting) return
 
+    const mode = this.data.addMode
     const url = this.data.resourceUrl.trim()
+    const pastedText = this.data.pastedText.trim()
     const file = this.data.selectedFile
-    if (!url && !file) {
-      wx.showToast({ title: '请输入 URL 或选择文件', icon: 'none' })
+    if (mode === 'url' && !url) {
+      wx.showToast({ title: '请输入 URL', icon: 'none' })
+      return
+    }
+    if (mode === 'text' && !pastedText) {
+      wx.showToast({ title: '请粘贴文本', icon: 'none' })
+      return
+    }
+    if (mode === 'file' && !file) {
+      wx.showToast({ title: '请选择文件', icon: 'none' })
       return
     }
 
-    if (url && !/^https?:\/\//i.test(url)) {
+    if (mode === 'url' && !/^https?:\/\//i.test(url)) {
       wx.showToast({ title: 'URL 需以 http 或 https 开头', icon: 'none' })
       return
     }
 
-    if (file && file.size > 1024 * 1024) {
+    if (mode === 'text' && pastedText.length > 20000) {
+      wx.showToast({ title: '文本需小于 2 万字', icon: 'none' })
+      return
+    }
+
+    if (mode === 'file' && file.size > 1024 * 1024) {
       wx.showToast({ title: '文件需小于 1MB', icon: 'none' })
       return
     }
@@ -149,13 +219,20 @@ Page({
 
     try {
       let payload
-      if (file) {
+      if (mode === 'file') {
         const text = await this.readFile(file)
         payload = {
           sourceType: 'file',
           text,
           fileName: file.name,
           fileType: file.fileType
+        }
+      } else if (mode === 'text') {
+        payload = {
+          sourceType: 'text',
+          text: pastedText,
+          fileName: this.inferTextTitle(pastedText),
+          fileType: 'txt'
         }
       } else {
         payload = {
@@ -171,7 +248,9 @@ Page({
       this.setData({
         showAddModal: false,
         isImporting: false,
+        addMode: 'url',
         resourceUrl: '',
+        pastedText: '',
         selectedFile: null
       })
       this.loadResources()
@@ -185,6 +264,16 @@ Page({
       wx.showToast({ title: err.message || '导入失败', icon: 'none', duration: 2600 })
       console.error('导入资源失败', err)
     }
+  },
+
+  inferTextTitle(text) {
+    const firstLine = String(text || '')
+      .split(/\n+/)
+      .map(line => line.trim())
+      .find(Boolean)
+
+    if (!firstLine) return '粘贴文本'
+    return firstLine.length > 28 ? `${firstLine.slice(0, 28)}...` : firstLine
   },
 
   onOpenResource(e) {

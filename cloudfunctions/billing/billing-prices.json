@@ -1,0 +1,57 @@
+{
+  "currency": "CNY",
+  "prices": [
+    {
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "operation": "text_generation",
+      "meter": "input_tokens",
+      "version": "v1-internal-estimate",
+      "effectiveFrom": "2026-05-23T00:00:00+08:00",
+      "currency": "CNY",
+      "unitSize": 1000,
+      "costMicros": 1000,
+      "markupMultiplier": 1,
+      "sourceNote": "内部成本口径：请按供应商账单/商务报价/人工估算维护"
+    },
+    {
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "operation": "text_generation",
+      "meter": "cached_input_tokens",
+      "version": "v1-internal-estimate",
+      "effectiveFrom": "2026-05-23T00:00:00+08:00",
+      "currency": "CNY",
+      "unitSize": 1000,
+      "costMicros": 200,
+      "markupMultiplier": 1,
+      "sourceNote": "内部成本口径：请按供应商账单/商务报价/人工估算维护"
+    },
+    {
+      "provider": "deepseek",
+      "model": "deepseek-chat",
+      "operation": "text_generation",
+      "meter": "output_tokens",
+      "version": "v1-internal-estimate",
+      "effectiveFrom": "2026-05-23T00:00:00+08:00",
+      "currency": "CNY",
+      "unitSize": 1000,
+      "costMicros": 4000,
+      "markupMultiplier": 1,
+      "sourceNote": "内部成本口径：请按供应商账单/商务报价/人工估算维护"
+    },
+    {
+      "provider": "dashscope",
+      "model": "qwen3-tts-flash",
+      "operation": "tts",
+      "meter": "tts_chars",
+      "version": "v1-internal-estimate",
+      "effectiveFrom": "2026-05-23T00:00:00+08:00",
+      "currency": "CNY",
+      "unitSize": 1000,
+      "costMicros": 30000,
+      "markupMultiplier": 1,
+      "sourceNote": "内部成本口径：请按供应商账单/商务报价/人工估算维护"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 const vocabStorage = require('./utils/storage')
 const resourceStorage = require('./utils/resource-storage')
+const courseStorage = require('./utils/course-storage')
+const userStorage = require('./utils/user-storage')
 
 App({
   onLaunch() {
@@ -14,7 +16,13 @@ App({
     const userInfo = wx.getStorageSync('userInfo')
     const cachedOpenid = wx.getStorageSync('openid')
     if (userInfo && cachedOpenid) {
-      this.globalData.userInfo = userInfo
+      // 优先使用 user-storage 中的最新本地缓存
+      const localProfile = userStorage.getUserProfile()
+      if (localProfile && (localProfile.nickName || localProfile.avatarUrl)) {
+        this.globalData.userInfo = localProfile
+      } else {
+        this.globalData.userInfo = userInfo
+      }
       this.globalData.openid = cachedOpenid
       this.globalData.isLoggedIn = true
       this.initUserCaches()
@@ -28,6 +36,13 @@ App({
       this.globalData.isLoggedIn = true
       wx.setStorageSync('openid', res.result.openid)
       this.initUserCaches()
+
+      // 从云数据库加载用户资料（头像、昵称）
+      const profile = await userStorage.loadUserProfileFromCloud()
+      if (profile && (profile.nickName || profile.avatarUrl)) {
+        this.globalData.userInfo = profile
+        wx.setStorageSync('userInfo', profile)
+      }
     } catch (err) {
       console.error('登录失败', err)
     }
@@ -36,6 +51,7 @@ App({
   initUserCaches() {
     vocabStorage.initForActiveUser()
     resourceStorage.initForActiveUser()
+    courseStorage.initForActiveUser()
   },
 
   globalData: {

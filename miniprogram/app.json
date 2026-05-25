@@ -1,12 +1,18 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/daily-session/daily-session",
     "pages/resources/resources",
     "pages/resource-detail/resource-detail",
     "pages/vocabulary/vocabulary",
     "pages/add-word/add-word",
     "pages/word-detail/word-detail",
-    "pages/review/review"
+    "pages/review/review",
+    "pages/billing/billing",
+    "pages/courses/courses",
+    "pages/course-detail/course-detail",
+    "pages/course-item-detail/course-item-detail",
+    "pages/admin/admin"
   ],
   "window": {
     "backgroundTextStyle": "dark",

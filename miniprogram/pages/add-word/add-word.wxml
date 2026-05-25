@@ -28,7 +28,10 @@
   <!-- 生成结果 -->
   <view class="result-section" wx:if="{{generatedContent}}">
     <view class="section-header">
-      <text class="section-title">📖 {{inputWord}}</text>
+      <view class="section-word">
+        <text class="section-title">📖 {{inputWord}}</text>
+        <text class="word-phonetic" wx:if="{{generatedContent.phonetic}}">{{generatedContent.phonetic}}</text>
+      </view>
       <view class="difficulty-badge" wx:if="{{generatedContent.difficulty}}">
         <text wx:for="{{[1,2,3,4,5]}}" wx:key="*this"
           class="star {{item <= generatedContent.difficulty ? 'active' : ''}}">★</text>
