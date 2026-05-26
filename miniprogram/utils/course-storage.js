@@ -19,7 +19,7 @@
  */
 
 const userStorage = require('./user-storage')
-const cloud = require('./cloud')
+const builtInCourses = require('../data/built-in-courses')
 
 const COURSE_INDEX_KEY = 'course_index'
 const COURSE_KEY_PREFIX = 'course_'
@@ -91,6 +91,8 @@ function getTypeConfig(type) {
 }
 
 let state = createEmptyState()
+let courseHydrationPromise = null
+let courseHydrationUserId = ''
 
 function createEmptyState(userId = '') {
   return {
@@ -113,6 +115,66 @@ function createDefaultMeta() {
 }
 
 function now() { return Date.now() }
+
+function cloneCourse(course) {
+  return {
+    ...(course || {}),
+    tags: Array.isArray(course && course.tags) ? course.tags.slice() : [],
+    extra: {
+      ...((course && course.extra) || {})
+    }
+  }
+}
+
+function getBuiltInCourses() {
+  return builtInCourses.map(cloneCourse)
+}
+
+function setCourseCatalog(courses, options = {}) {
+  const catalog = (Array.isArray(courses) ? courses : [])
+    .filter(c => c && c.id)
+    .map(cloneCourse)
+
+  state.courses = catalog
+  state.courseMap.clear()
+  catalog.forEach(c => state.courseMap.set(c.id, c))
+
+  if (options.persist !== false) {
+    persistCourseIndex()
+  }
+
+  return catalog
+}
+
+function hydrateCoursesFromBuiltIn() {
+  return setCourseCatalog(getBuiltInCourses())
+}
+
+function hasCloudDatabase() {
+  return typeof wx !== 'undefined' &&
+    wx.cloud &&
+    typeof wx.cloud.database === 'function'
+}
+
+function callCourseDataFunction(data) {
+  if (typeof wx === 'undefined' ||
+    !wx.cloud ||
+    typeof wx.cloud.callFunction !== 'function') {
+    return Promise.resolve(null)
+  }
+
+  return new Promise(resolve => {
+    wx.cloud.callFunction({
+      name: 'importCourseData',
+      data,
+      success: res => resolve(res && res.result),
+      fail: err => {
+        console.warn('课程云函数读取失败', data && data.action, err)
+        resolve(null)
+      }
+    })
+  })
+}
 
 function ensureState() {
   if (!state.loaded) {
@@ -150,8 +212,8 @@ function loadStateForActiveUser() {
 
   state.loaded = true
 
-  // L3 回填（仅本地为空时）
-  if (!userStorage.isAnonymousUser(userId) && state.courses.length === 0) {
+  // L3 回填（仅本地为空时）。课程目录是公开数据，不依赖用户进度登录态。
+  if (state.courses.length === 0) {
     hydrateCoursesFromCloud()
   }
 }
@@ -166,6 +228,19 @@ function loadStateForActiveUser() {
 function getAllCourses() {
   ensureState()
   return state.courses.filter(c => c.isActive !== false)
+}
+
+async function getAllCoursesAsync(options = {}) {
+  ensureState()
+
+  let courses = getAllCourses()
+  if (courses.length > 0 && !options.forceRefresh) {
+    return courses
+  }
+
+  await hydrateCoursesFromCloud()
+  courses = getAllCourses()
+  return courses
 }
 
 /**
@@ -229,11 +304,7 @@ async function getCourseSections(courseId) {
     return l2Data
   }
 
-  // L3: 云数据库拉取
-  if (userStorage.isAnonymousUser(state.userId)) {
-    return []
-  }
-
+  // L3: 云数据库拉取。课程章节是公开数据，登录完成前也允许读取。
   try {
     const db = wx.cloud.database()
     const { data } = await db.collection('course_sections')
@@ -250,6 +321,13 @@ async function getCourseSections(courseId) {
     }
   } catch (err) {
     console.error('拉取课程章节失败', courseId, err)
+  }
+
+  const functionSections = await fetchCourseSectionsFromFunction(courseId)
+  if (functionSections.length > 0) {
+    state.sectionsMap.set(courseId, functionSections)
+    userStorage.setUserStorageSync(l2Key, functionSections, state.userId)
+    return functionSections
   }
 
   return []
@@ -292,11 +370,7 @@ async function getCourseItems(courseId, page = 1, options = {}) {
     return l2Data
   }
 
-  // L3: 云数据库拉取
-  if (userStorage.isAnonymousUser(state.userId)) {
-    return []
-  }
-
+  // L3: 云数据库拉取。课程条目是公开数据，登录完成前也允许读取。
   try {
     const db = wx.cloud.database()
     const skip = (page - 1) * PAGE_SIZE
@@ -316,6 +390,13 @@ async function getCourseItems(courseId, page = 1, options = {}) {
     }
   } catch (err) {
     console.error('拉取课程条目失败', courseId, page, err)
+  }
+
+  const functionItems = await fetchCourseItemsFromFunction(courseId, page)
+  if (functionItems.length > 0) {
+    pages.set(page, functionItems)
+    userStorage.setUserStorageSync(l2Key, functionItems, state.userId)
+    return functionItems
   }
 
   return []
@@ -346,11 +427,7 @@ async function getCourseItemsBySection(courseId, sectionIndex, page = 1) {
     return l2Data
   }
 
-  // L3: 云数据库拉取
-  if (userStorage.isAnonymousUser(state.userId)) {
-    return []
-  }
-
+  // L3: 云数据库拉取。课程条目是公开数据，登录完成前也允许读取。
   try {
     const db = wx.cloud.database()
     const skip = (page - 1) * PAGE_SIZE
@@ -374,6 +451,13 @@ async function getCourseItemsBySection(courseId, sectionIndex, page = 1) {
     console.error('拉取章节条目失败', courseId, sectionIndex, page, err)
   }
 
+  const functionItems = await fetchCourseItemsFromFunction(courseId, page, { sectionIndex })
+  if (functionItems.length > 0) {
+    pages.set(page, functionItems)
+    userStorage.setUserStorageSync(l2Key, functionItems, state.userId)
+    return functionItems
+  }
+
   return []
 }
 
@@ -381,6 +465,8 @@ async function getCourseItemsBySection(courseId, sectionIndex, page = 1) {
  * 获取单个条目
  */
 async function getCourseItem(courseId, itemId) {
+  ensureState()
+
   // 先在已加载的页中查找
   const pages = state.itemPages.get(courseId)
   if (pages) {
@@ -400,27 +486,27 @@ async function getCourseItem(courseId, itemId) {
     }
   }
 
-  // L3 查询
-  if (!userStorage.isAnonymousUser(state.userId)) {
-    try {
-      const db = wx.cloud.database()
-      const { data } = await db.collection('course_items')
-        .where({ courseId, id: itemId })
-        .limit(1)
-        .get()
-      if (data && data.length > 0) return data[0]
-    } catch (err) {
-      console.error('获取课程条目失败', itemId, err)
-    }
+  // L3 查询。课程条目是公开数据，登录完成前也允许读取。
+  try {
+    const db = wx.cloud.database()
+    const { data } = await db.collection('course_items')
+      .where({ courseId, id: itemId })
+      .limit(1)
+      .get()
+    if (data && data.length > 0) return data[0]
+  } catch (err) {
+    console.error('获取课程条目失败', itemId, err)
   }
 
-  return null
+  return fetchCourseItemFromFunction(courseId, itemId)
 }
 
 /**
  * 搜索课程条目（通用搜索：递归遍历对象所有字符串值）
  */
 async function searchCourseItems(courseId, keyword) {
+  ensureState()
+
   if (!keyword || !keyword.trim()) return []
   
   const kw = keyword.trim().toLowerCase()
@@ -448,22 +534,23 @@ async function searchCourseItems(courseId, keyword) {
   // 如果已加载页有结果，直接返回
   if (unique.length > 0) return unique
 
-  // 否则 L3 搜索（用正则）
-  if (!userStorage.isAnonymousUser(state.userId)) {
-    try {
-      const db = wx.cloud.database()
-      const { data } = await db.collection('course_items')
-        .where({
-          courseId,
-          title: db.RegExp({ regexp: kw, options: 'i' })
-        })
-        .limit(50)
-        .get()
-      if (data) return data
-    } catch (err) {
-      console.error('搜索课程条目失败', courseId, kw, err)
-    }
+  // 否则 L3 搜索（用正则）。课程条目是公开数据，登录完成前也允许读取。
+  try {
+    const db = wx.cloud.database()
+    const { data } = await db.collection('course_items')
+      .where({
+        courseId,
+        title: db.RegExp({ regexp: kw, options: 'i' })
+      })
+      .limit(50)
+      .get()
+    if (data) return data
+  } catch (err) {
+    console.error('搜索课程条目失败', courseId, kw, err)
   }
+
+  const functionItems = await fetchCourseSearchFromFunction(courseId, kw)
+  if (functionItems.length > 0) return functionItems
 
   return unique
 }
@@ -596,8 +683,12 @@ function persistProgressIndex(courseId) {
   const key = `${PROGRESS_KEY_PREFIX}${courseId}`
   userStorage.setUserStorageSync(key, list, state.userId)
 
-  // 更新进度索引（记录哪些课程有进度）
-  userStorage.setUserStorageSync('course_progress_index', list, state.userId)
+  // 更新全量进度索引，避免多课程时后写入的课程覆盖其它课程进度。
+  const allProgress = []
+  state.progressMap.forEach(courseProgress => {
+    allProgress.push(...Array.from(courseProgress.values()))
+  })
+  userStorage.setUserStorageSync('course_progress_index', allProgress, state.userId)
 }
 
 // ============================
@@ -605,26 +696,80 @@ function persistProgressIndex(courseId) {
 // ============================
 
 async function hydrateCoursesFromCloud() {
-  if (userStorage.isAnonymousUser(state.userId)) return
-
-  try {
-    const db = wx.cloud.database()
-    const { data } = await db.collection('courses')
-      .where({ isActive: true })
-      .limit(100)
-      .get()
-
-    if (data && data.length > 0) {
-      state.courses = data
-      state.courseMap.clear()
-      data.forEach(c => state.courseMap.set(c.id, c))
-
-      // L2 回填
-      persistCourseIndex()
-    }
-  } catch (err) {
-    console.error('回填课程目录失败', err)
+  const targetUserId = state.userId || userStorage.getActiveUserId()
+  if (courseHydrationPromise && courseHydrationUserId === targetUserId) {
+    return courseHydrationPromise
   }
+
+  courseHydrationUserId = targetUserId
+  courseHydrationPromise = (async () => {
+    if (hasCloudDatabase()) {
+      try {
+        const db = wx.cloud.database()
+        const { data } = await db.collection('courses')
+          .where({ isActive: true })
+          .limit(100)
+          .get()
+
+        if (data && data.length > 0) {
+          return setCourseCatalog(data)
+        }
+      } catch (err) {
+        console.error('回填课程目录失败', err)
+      }
+    }
+
+    const functionResult = await callCourseDataFunction({ action: 'listCourses' })
+    if (functionResult && functionResult.success && Array.isArray(functionResult.courses) && functionResult.courses.length > 0) {
+      return setCourseCatalog(functionResult.courses)
+    }
+
+    return hydrateCoursesFromBuiltIn()
+  })().finally(() => {
+    if (courseHydrationUserId === targetUserId) {
+      courseHydrationPromise = null
+      courseHydrationUserId = ''
+    }
+  })
+
+  return courseHydrationPromise
+}
+
+async function fetchCourseItemsFromFunction(courseId, page, options = {}) {
+  const result = await callCourseDataFunction({
+    action: 'listItems',
+    courseId,
+    page,
+    pageSize: PAGE_SIZE,
+    sectionIndex: options.sectionIndex
+  })
+  return result && result.success && Array.isArray(result.items) ? result.items : []
+}
+
+async function fetchCourseItemFromFunction(courseId, itemId) {
+  const result = await callCourseDataFunction({
+    action: 'getItem',
+    courseId,
+    itemId
+  })
+  return result && result.success && result.item ? result.item : null
+}
+
+async function fetchCourseSearchFromFunction(courseId, keyword) {
+  const result = await callCourseDataFunction({
+    action: 'searchItems',
+    courseId,
+    keyword
+  })
+  return result && result.success && Array.isArray(result.items) ? result.items : []
+}
+
+async function fetchCourseSectionsFromFunction(courseId) {
+  const result = await callCourseDataFunction({
+    action: 'listSections',
+    courseId
+  })
+  return result && result.success && Array.isArray(result.sections) ? result.sections : []
 }
 
 async function syncProgressToCloud(courseId, progress) {
@@ -635,7 +780,6 @@ async function syncProgressToCloud(courseId, progress) {
     // 查找已有记录
     const { data } = await db.collection('userCourseProgress')
       .where({
-        _openid: '{openid}',  // 云端自动填充
         courseId,
         itemId: progress.itemId
       })
@@ -719,6 +863,7 @@ function initForActiveUser() {
 module.exports = {
   // 课程目录
   getAllCourses,
+  getAllCoursesAsync,
   getCourse,
   getCourseStats,
   // 课程章节

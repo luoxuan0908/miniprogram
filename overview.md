@@ -92,8 +92,8 @@
 
 | 配置项 | 位置 | 说明 |
 |--------|------|------|
-| `appid` | `project.config.json` | `wx8e5a63421b0d4727` |
-| `env-id` | `app.js` → `wx.cloud.init()` | `cloud1-d9g82wxrn9260a87b` |
+| `appid` | `project.config.json` / `constants.js` | `wx57a74d66c06421ad` |
+| `env-id` | `constants.js` → `wx.cloud.init()` | `cloud1-d1gg8fxt120042802` |
 | `DEEPSEEK_API_KEY` | 云函数环境变量 ×3 | generateContent / translateSegment / generateResourceStudyPack |
 | `DASHSCOPE_API_KEY` | 云函数环境变量 ×1 | tts |
 

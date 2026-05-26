@@ -2,11 +2,12 @@ const vocabStorage = require('./utils/storage')
 const resourceStorage = require('./utils/resource-storage')
 const courseStorage = require('./utils/course-storage')
 const userStorage = require('./utils/user-storage')
+const { CLOUD_ENV_ID } = require('./utils/constants')
 
 App({
   onLaunch() {
     wx.cloud.init({
-      env: 'cloud1-d9g82wxrn9260a87b',
+      env: CLOUD_ENV_ID,
       traceUser: true
     })
     this.checkLogin()

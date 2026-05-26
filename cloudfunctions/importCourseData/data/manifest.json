@@ -1,0 +1,104 @@
+{
+  "batchSize": 100,
+  "totalItems": 1355,
+  "batches": [
+    {
+      "batch": 1,
+      "file": "course_items_001.json",
+      "count": 100,
+      "firstId": "idiom-0001",
+      "lastId": "idiom-0100"
+    },
+    {
+      "batch": 2,
+      "file": "course_items_002.json",
+      "count": 100,
+      "firstId": "idiom-0101",
+      "lastId": "idiom-0200"
+    },
+    {
+      "batch": 3,
+      "file": "course_items_003.json",
+      "count": 100,
+      "firstId": "idiom-0201",
+      "lastId": "idiom-0300"
+    },
+    {
+      "batch": 4,
+      "file": "course_items_004.json",
+      "count": 100,
+      "firstId": "idiom-0301",
+      "lastId": "idiom-0400"
+    },
+    {
+      "batch": 5,
+      "file": "course_items_005.json",
+      "count": 100,
+      "firstId": "idiom-0401",
+      "lastId": "idiom-0500"
+    },
+    {
+      "batch": 6,
+      "file": "course_items_006.json",
+      "count": 100,
+      "firstId": "idiom-0501",
+      "lastId": "idiom-0600"
+    },
+    {
+      "batch": 7,
+      "file": "course_items_007.json",
+      "count": 100,
+      "firstId": "idiom-0601",
+      "lastId": "idiom-0700"
+    },
+    {
+      "batch": 8,
+      "file": "course_items_008.json",
+      "count": 100,
+      "firstId": "idiom-0701",
+      "lastId": "idiom-0800"
+    },
+    {
+      "batch": 9,
+      "file": "course_items_009.json",
+      "count": 100,
+      "firstId": "idiom-0801",
+      "lastId": "idiom-0900"
+    },
+    {
+      "batch": 10,
+      "file": "course_items_010.json",
+      "count": 100,
+      "firstId": "idiom-0901",
+      "lastId": "idiom-1000"
+    },
+    {
+      "batch": 11,
+      "file": "course_items_011.json",
+      "count": 100,
+      "firstId": "idiom-1001",
+      "lastId": "idiom-1100"
+    },
+    {
+      "batch": 12,
+      "file": "course_items_012.json",
+      "count": 100,
+      "firstId": "idiom-1101",
+      "lastId": "idiom-1200"
+    },
+    {
+      "batch": 13,
+      "file": "course_items_013.json",
+      "count": 100,
+      "firstId": "idiom-1201",
+      "lastId": "idiom-1300"
+    },
+    {
+      "batch": 14,
+      "file": "course_items_014.json",
+      "count": 55,
+      "firstId": "idiom-1301",
+      "lastId": "idiom-1355"
+    }
+  ]
+}

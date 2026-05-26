@@ -1,4 +1,7 @@
 /** 单词学习状态 */
+const APP_ID = 'wx57a74d66c06421ad'
+const CLOUD_ENV_ID = 'cloud1-d1gg8fxt120042802'
+
 const WORD_STATUS = {
   NEW: 'new',
   LEARNING: 'learning',
@@ -79,6 +82,8 @@ const DEEPSEEK_PROMPT = (word) => `你是一位专业的英语教学专家。请
 }`
 
 module.exports = {
+  APP_ID,
+  CLOUD_ENV_ID,
   WORD_STATUS,
   EBINGHAUS_INTERVALS,
   MAX_REVIEW_LEVEL,

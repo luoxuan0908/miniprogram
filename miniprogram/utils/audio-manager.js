@@ -19,6 +19,7 @@ let pendingFailTimer = null
 let playRequestId = 0
 let sourcePlayId = 0
 let suppressNextStopEvent = false
+let suppressCurrentErrorLog = false
 let activeFallbackSources = []
 const tempFileCache = {}
 const AUDIO_EXT_RE = /\.(mp3|aac|m4a|wav)(\?|#|$)/i
@@ -57,6 +58,7 @@ function rejectPendingPlay(err) {
 function resetActivePlayback() {
   audioState = 'stopped'
   currentFileID = ''
+  suppressCurrentErrorLog = false
   activeFallbackSources = []
 }
 
@@ -140,7 +142,9 @@ function getAudioContext() {
     audioContext.onError((err) => {
       if (tryPlayFallbackSource(err)) return
 
-      console.error('音频播放错误', err)
+      if (!suppressCurrentErrorLog) {
+        console.error('音频播放错误', err)
+      }
       resetActivePlayback()
       if (onErrorCallback) onErrorCallback(err)
       rejectPendingPlay(createPlaybackError(err))
@@ -356,7 +360,7 @@ function startResolvedSources(ctx, sources) {
  * @param {string} fileID - cloud:// 格式音频文件 ID
  * @returns {Promise<void>}
  */
-function playAudio(fileID) {
+function playAudio(fileID, options = {}) {
   return new Promise((resolve, reject) => {
     if (!fileID) {
       reject(new Error('音频文件ID为空'))
@@ -388,6 +392,7 @@ function playAudio(fileID) {
 
     currentFileID = fileID
     audioState = 'loading'
+    suppressCurrentErrorLog = !!options.suppressErrorLog
     pendingPlayResolve = resolve
     pendingPlayReject = reject
     activeFallbackSources = []

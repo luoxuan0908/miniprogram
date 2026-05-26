@@ -104,13 +104,24 @@ function extractUsageMeters(usage, fallbackMeters) {
   return Object.keys(meters).length ? meters : fallbackMeters
 }
 
+function getCurrentOpenid() {
+  try {
+    const wxContext = cloud.getWXContext()
+    return (wxContext && wxContext.OPENID) || ''
+  } catch (err) {
+    return ''
+  }
+}
+
 async function callBilling(action, payload) {
   try {
+    const openid = getCurrentOpenid()
     const res = await cloud.callFunction({
       name: 'billing',
       data: {
         action,
-        ...payload
+        ...payload,
+        ...(openid ? { openid } : {})
       }
     })
     return res.result || { success: false, error: '计费服务无返回' }
@@ -186,27 +197,6 @@ async function translateBatch(texts, requestId) {
     }
 
     const data = JSON.parse(response.data)
-    const content = data.choices && data.choices[0] && data.choices[0].message.content
-    if (!content) return { success: true, translations: texts.map(() => '') }
-
-    let parsed
-    try {
-      parsed = JSON.parse(content)
-    } catch (e) {
-      const match = content.match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (!match) {
-        console.warn('DeepSeek translation parse failed: no JSON block')
-        return { success: true, translations: texts.map(() => '') }
-      }
-      parsed = JSON.parse(match[1])
-    }
-
-    if (!Array.isArray(parsed)) {
-      console.warn('DeepSeek translation parse failed: response is not an array')
-      return { success: true, translations: texts.map(() => '') }
-    }
-
-    const translations = texts.map((_, index) => Array.isArray(parsed) ? (parsed[index] || '') : '')
     const billing = await callBilling('settle', {
       requestId,
       modelKey: MODEL_KEY,
@@ -219,7 +209,27 @@ async function translateBatch(texts, requestId) {
         itemCount: texts.length
       }
     })
+    const content = data.choices && data.choices[0] && data.choices[0].message.content
+    if (!content) return { success: true, translations: texts.map(() => ''), billing }
 
+    let parsed
+    try {
+      parsed = JSON.parse(content)
+    } catch (e) {
+      const match = content.match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (!match) {
+        console.warn('DeepSeek translation parse failed: no JSON block')
+        return { success: true, translations: texts.map(() => ''), billing }
+      }
+      parsed = JSON.parse(match[1])
+    }
+
+    if (!Array.isArray(parsed)) {
+      console.warn('DeepSeek translation parse failed: response is not an array')
+      return { success: true, translations: texts.map(() => ''), billing }
+    }
+
+    const translations = texts.map((_, index) => Array.isArray(parsed) ? (parsed[index] || '') : '')
     return { success: true, translations, billing }
   } catch (e) {
     console.error('translateBatch failed:', e)

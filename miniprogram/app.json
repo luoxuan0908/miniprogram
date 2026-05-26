@@ -11,13 +11,12 @@
     "pages/billing/billing",
     "pages/courses/courses",
     "pages/course-detail/course-detail",
-    "pages/course-item-detail/course-item-detail",
-    "pages/admin/admin"
+    "pages/course-item-detail/course-item-detail"
   ],
   "window": {
     "backgroundTextStyle": "dark",
     "navigationBarBackgroundColor": "#ffffff",
-    "navigationBarTitleText": "Study Hub",
+    "navigationBarTitleText": "AI轻松英语",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#ffffff"
   },

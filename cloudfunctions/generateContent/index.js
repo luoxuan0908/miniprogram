@@ -176,13 +176,24 @@ function extractUsageMeters(usage, fallbackMeters) {
   return Object.keys(meters).length ? meters : fallbackMeters
 }
 
+function getCurrentOpenid() {
+  try {
+    const wxContext = cloud.getWXContext()
+    return (wxContext && wxContext.OPENID) || ''
+  } catch (err) {
+    return ''
+  }
+}
+
 async function callBilling(action, payload) {
   try {
+    const openid = getCurrentOpenid()
     const res = await cloud.callFunction({
       name: 'billing',
       data: {
         action,
-        ...payload
+        ...payload,
+        ...(openid ? { openid } : {})
       }
     })
     return res.result || { success: false, error: '计费服务无返回' }
@@ -266,6 +277,19 @@ exports.main = async (event, context) => {
     }
 
     const data = JSON.parse(response.data)
+    const feature = phoneticOnly ? 'phonetic' : 'word_content'
+    const billing = await callBilling('settle', {
+      requestId,
+      modelKey: MODEL_KEY,
+      operation: MODEL_OPERATION,
+      providerUsage: data.usage || null,
+      meters: extractUsageMeters(data.usage, estimatedMeters),
+      usageSource: data.usage ? 'provider' : 'estimated',
+      metadata: {
+        feature,
+        word: trimmedWord
+      }
+    })
     const content = data.choices && data.choices[0] && data.choices[0].message.content
 
     if (!content) {
@@ -287,19 +311,6 @@ exports.main = async (event, context) => {
     }
 
     if (phoneticOnly) {
-      const billing = await callBilling('settle', {
-        requestId,
-        modelKey: MODEL_KEY,
-        operation: MODEL_OPERATION,
-        providerUsage: data.usage || null,
-        meters: extractUsageMeters(data.usage, estimatedMeters),
-        usageSource: data.usage ? 'provider' : 'estimated',
-        metadata: {
-          feature: 'phonetic',
-          word: trimmedWord
-        }
-      })
-
       return {
         success: true,
         content: {
@@ -325,19 +336,6 @@ exports.main = async (event, context) => {
       memoryTip: parsed.memoryTip || '',
       difficulty: Math.min(5, Math.max(1, parseInt(parsed.difficulty) || 3))
     }
-
-    const billing = await callBilling('settle', {
-      requestId,
-      modelKey: MODEL_KEY,
-      operation: MODEL_OPERATION,
-      providerUsage: data.usage || null,
-      meters: extractUsageMeters(data.usage, estimatedMeters),
-      usageSource: data.usage ? 'provider' : 'estimated',
-      metadata: {
-        feature: 'word_content',
-        word: trimmedWord
-      }
-    })
 
     return { success: true, content: result, billing }
   } catch (err) {

@@ -33,10 +33,26 @@ Page({
 
   async loadCourse() {
     const { courseId } = this.data
-    if (!courseId) return
+    if (!courseId) {
+      this.setData({ loading: false })
+      return
+    }
 
+    this.setData({ loading: true })
+    await courseStorage.getAllCoursesAsync()
     const course = courseStorage.getCourse(courseId)
-    if (!course) return
+    if (!course) {
+      this.setData({
+        course: {},
+        stats: {},
+        typeConfig: {},
+        items: [],
+        displayItems: [],
+        hasMore: false,
+        loading: false
+      })
+      return
+    }
 
     const stats = courseStorage.getCourseStats(courseId) || {}
     const progressMap = this.buildProgressMap(courseId)

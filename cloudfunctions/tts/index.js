@@ -17,11 +17,25 @@ function createRequestId(prefix) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function getCurrentOpenid() {
+  try {
+    const wxContext = cloud.getWXContext()
+    return (wxContext && wxContext.OPENID) || ''
+  } catch (err) {
+    return ''
+  }
+}
+
 async function callBilling(action, payload) {
   try {
+    const openid = getCurrentOpenid()
     const res = await cloud.callFunction({
       name: 'billing',
-      data: { action, ...payload }
+      data: {
+        action,
+        ...payload,
+        ...(openid ? { openid } : {})
+      }
     })
     return res.result || { success: false, error: '计费服务无返回' }
   } catch (err) {

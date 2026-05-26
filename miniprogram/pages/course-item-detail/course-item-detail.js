@@ -66,14 +66,35 @@ Page({
     this._playing = true
 
     try {
-      // 优先使用预置音频（cloud:// 或 https:// 开头）
+      // 1. cloud:// 或 https:// 开头 → 直接播放
       if (audioUrl && (audioUrl.startsWith('cloud://') || audioUrl.startsWith('https://'))) {
         await audioManager.playAudio(audioUrl)
         this._playing = false
         return
       }
 
-      // Fallback: TTS 合成
+      // 2. 相对路径（如 "audio/001.1.mp3"）→ 转为 cloud:// fileID 播放
+      if (audioUrl && !audioUrl.startsWith('/')) {
+        const fileName = audioUrl.replace(/^audio\//, '')
+        const fileID = `cloud://cloud1-d1gg8fxt120042802.636c-cloud1-d1gg8fxt120042802-1436779938/idioms-audio/${fileName}`
+        try {
+          await audioManager.playAudio(fileID)
+          this._playing = false
+          return
+        } catch (cloudErr) {
+          // 云存储播放失败，继续 fallback 到 CDN
+          const cdnUrl = 'https://cdn.jsdelivr.net/gh/luoxuan0908/most-common-american-idioms@main/' + audioUrl
+          try {
+            await audioManager.playAudio(cdnUrl)
+            this._playing = false
+            return
+          } catch (cdnErr) {
+            // CDN 也失败，继续 fallback 到 TTS
+          }
+        }
+      }
+
+      // 3. Fallback: TTS 合成
       const voice = ttsPreferences.normalizeTtsVoice(ttsPreferences.getTtsPreferences().ttsVoice)
       wx.showLoading({ title: '合成语音...' })
 

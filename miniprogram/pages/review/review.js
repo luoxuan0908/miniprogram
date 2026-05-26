@@ -41,6 +41,7 @@ Page({
     billingSummary: {
       balanceLabel: '--',
       chargedLabel: '--',
+      callCountLabel: '0',
       ready: false
     },
     syncing: false
@@ -114,10 +115,12 @@ Page({
     try {
       const result = await cloud.getBillingAccount()
       const account = result.account || {}
+      const usageSummary = result.usageSummary || {}
       this.setData({
         billingSummary: {
           balanceLabel: account.balanceYuan || '0.0000',
           chargedLabel: account.chargedYuan || '0.0000',
+          callCountLabel: String(Number(usageSummary.totalCalls || (result.recentLedger || []).length || 0)),
           ready: true
         }
       })
@@ -127,6 +130,7 @@ Page({
         billingSummary: {
           balanceLabel: isFunctionNotFoundError(err) ? '未部署' : '--',
           chargedLabel: '--',
+          callCountLabel: '0',
           ready: false
         }
       })
@@ -213,7 +217,7 @@ Page({
       segments: resourceStorage.getStats().segments
     }
     return JSON.stringify({
-      appName: 'Study Hub',
+      appName: 'AI轻松英语',
       exportDate: new Date().toISOString(),
       stats,
       words,
@@ -253,7 +257,7 @@ Page({
     const statusMap = { new: '新词', learning: '学习中', mastered: '已掌握' }
 
     const lines = [
-      'Study Hub · 学习数据导出',
+      'AI轻松英语 · 学习数据导出',
       `导出时间：${timeStr}`,
       '──────────────────────────',
       '',
@@ -337,10 +341,6 @@ Page({
         wx.showToast({ title: '已清除', icon: 'success' })
       }
     })
-  },
-
-  onOpenAdmin() {
-    wx.navigateTo({ url: '/pages/admin/admin' })
   },
 
   async onSyncToCloud() {

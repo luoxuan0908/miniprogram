@@ -47,6 +47,11 @@ function formatMeters(meters) {
   return entries.join(' · ')
 }
 
+function formatCount(value) {
+  const count = Number(value || 0)
+  return Number.isFinite(count) ? String(count) : '0'
+}
+
 function formatLedgerItem(item) {
   const unpriced = item.pricingStatus === 'unpriced' || item.pendingPricing
   return {
@@ -78,6 +83,11 @@ Page({
       chargedLabel: '0.0000',
       currency: 'CNY'
     },
+    usageSummary: {
+      totalCalls: 0,
+      totalCallsLabel: '0',
+      unpricedCalls: 0
+    },
     ledger: [],
     offset: 0,
     hasMore: true
@@ -97,11 +107,13 @@ Page({
     try {
       const accountRes = await cloud.getBillingAccount()
       const ledgerRes = await cloud.getBillingLedger({ limit: 20, offset: 0 })
+      const ledger = ledgerRes.ledger || []
       this.setData({
         account: this.formatAccount(accountRes.account || {}),
-        ledger: (ledgerRes.ledger || []).map(formatLedgerItem),
-        offset: (ledgerRes.ledger || []).length,
-        hasMore: (ledgerRes.ledger || []).length >= 20
+        usageSummary: this.formatUsageSummary(accountRes.usageSummary || {}, ledger.length),
+        ledger: ledger.map(formatLedgerItem),
+        offset: ledger.length,
+        hasMore: ledger.length >= 20
       })
     } catch (err) {
       console.error('load billing failed:', err)
@@ -142,6 +154,16 @@ Page({
       currency: account.currency || 'CNY',
       status: account.status || 'active',
       updatedLabel: formatTime(account.updatedAt)
+    }
+  },
+
+  formatUsageSummary(summary, fallbackCalls) {
+    const totalCalls = Number(summary.totalCalls || fallbackCalls || 0)
+    const unpricedCalls = Number(summary.unpricedCalls || 0)
+    return {
+      totalCalls,
+      totalCallsLabel: formatCount(totalCalls),
+      unpricedCalls
     }
   }
 })

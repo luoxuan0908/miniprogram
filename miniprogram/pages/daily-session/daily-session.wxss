@@ -76,30 +76,6 @@
   line-height: 1.6;
 }
 
-.shadow-task {
-  margin-top: 22rpx;
-  padding: 22rpx;
-  border-radius: 10rpx;
-  border: 1rpx solid #dfe3e8;
-}
-
-.shadow-resource {
-  color: #111217;
-  font-size: 27rpx;
-  font-weight: 850;
-}
-
-.shadow-hint {
-  margin-top: 10rpx;
-  color: #6f7582;
-  font-size: 25rpx;
-  line-height: 1.5;
-}
-
-.shadow-open-btn {
-  margin-top: 20rpx;
-}
-
 .audio-btn {
   display: flex;
   flex-direction: row;

@@ -26,7 +26,7 @@
   <view class="billing-card" bindtap="onOpenBilling">
     <view>
       <view class="billing-title">AI 余额</view>
-      <view class="billing-meta">累计扣费 ¥{{billingSummary.chargedLabel}}</view>
+      <view class="billing-meta">AI 调用 {{billingSummary.callCountLabel}} 次 · 累计扣费 ¥{{billingSummary.chargedLabel}}</view>
     </view>
     <view class="billing-balance">{{billingSummary.ready ? '¥' : ''}}{{billingSummary.balanceLabel}}</view>
   </view>
@@ -54,6 +54,4 @@
     导入你的第一篇文档或添加生词开始学习
   </view>
 
-  <!-- 临时：数据导入管理按钮 -->
-  <view class="import-admin-btn" bindtap="onImportAdmin">管理</view>
 </view>

@@ -1,5 +1,5 @@
 {
-  "description": "听力优先生词系统",
+  "description": "AI轻松英语 - AI生成学习内容与音频，多模式练习，艾宾浩斯智能复习",
   "packOptions": {
     "ignore": [
       {
@@ -54,8 +54,8 @@
   },
   "compileType": "miniprogram",
   "libVersion": "3.3.4",
-  "appid": "wx8e5a63421b0d4727",
-  "projectname": "listening-vocab",
+  "appid": "wx57a74d66c06421ad",
+  "projectname": "AI轻松英语",
   "miniprogramRoot": "miniprogram/",
   "cloudfunctionRoot": "cloudfunctions/",
   "condition": {},

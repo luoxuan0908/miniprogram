@@ -18,6 +18,10 @@
         </view>
 
         <view wx:if="{{resource.studyPack}}">
+          <view class="study-empty" wx:if="{{!resource.studyPack.hasContent}}">
+            AI 已返回，但没有可展示的精读内容。可以点「重新生成」再试一次。
+          </view>
+
           <view class="study-block" wx:if="{{resource.studyPack.keyWords.length}}">
             <view class="study-label">重点词</view>
             <view class="keyword-row" wx:for="{{resource.studyPack.keyWords}}" wx:key="word">

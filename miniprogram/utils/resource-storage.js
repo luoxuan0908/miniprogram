@@ -133,12 +133,21 @@ function buildSummary(segments) {
 
 function normalizeStudyPack(studyPack) {
   if (!studyPack) return null
-  return {
+  const normalized = {
     keyWords: Array.isArray(studyPack.keyWords) ? studyPack.keyWords : [],
     hardSentences: Array.isArray(studyPack.hardSentences) ? studyPack.hardSentences : [],
     dictationSentences: Array.isArray(studyPack.dictationSentences) ? studyPack.dictationSentences : [],
     segmentSummaries: Array.isArray(studyPack.segmentSummaries) ? studyPack.segmentSummaries : [],
     generatedAt: studyPack.generatedAt || 0
+  }
+  return {
+    ...normalized,
+    hasContent: studyPack.hasContent !== undefined ? !!studyPack.hasContent : (
+      normalized.keyWords.length > 0 ||
+      normalized.hardSentences.length > 0 ||
+      normalized.dictationSentences.length > 0 ||
+      normalized.segmentSummaries.length > 0
+    )
   }
 }
 

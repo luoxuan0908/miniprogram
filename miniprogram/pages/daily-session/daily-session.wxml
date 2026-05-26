@@ -21,12 +21,6 @@
 
     <view class="task-prompt" wx:if="{{currentTask.prompt}}">{{currentTask.prompt}}</view>
 
-    <view class="shadow-task" wx:if="{{currentTask.type === 'segment-shadow'}}">
-      <view class="shadow-resource">{{currentTask.resourceTitle}}</view>
-      <view class="shadow-hint">打开片段跟读，保存一条录音后返回这里。</view>
-      <view class="primary-btn shadow-open-btn" bindtap="onOpenShadowTask">开始跟读</view>
-    </view>
-
     <!-- 输入框：dictation / recall / context -->
     <input
       wx:if="{{(currentTask.type === 'word-review' || currentTask.type === 'mistake-review') && currentTask.practiceMode !== 'recognition'}}"

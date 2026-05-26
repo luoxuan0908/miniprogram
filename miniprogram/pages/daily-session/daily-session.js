@@ -1,5 +1,4 @@
 const vocabStorage = require('../../utils/storage')
-const resourceStorage = require('../../utils/resource-storage')
 const studyDuration = require('../../utils/study-duration')
 const cloud = require('../../utils/cloud')
 const audioManager = require('../../utils/audio-manager')
@@ -116,25 +115,7 @@ function buildTasks() {
     tasks.push(buildWordTask(word, index))
   })
 
-  // 2. 文档片段跟读
-  const shadowSegment = resourceStorage.pickShadowSegment()
-  if (shadowSegment) {
-    tasks.push({
-      id: `segment-shadow-${shadowSegment.resourceId}-${shadowSegment.segmentIndex}`,
-      type: 'segment-shadow',
-      modeLabel: '跟读',
-      title: `跟读片段 #${shadowSegment.segmentIndex}`,
-      desc: shadowSegment.resourceTitle || '文档片段',
-      prompt: shadowSegment.text,
-      targetResourceId: shadowSegment.resourceId,
-      targetSegmentIndex: shadowSegment.segmentIndex,
-      resourceTitle: shadowSegment.resourceTitle,
-      initialShadowCount: shadowSegment.shadowCount || 0,
-      createdAt: Date.now()
-    })
-  }
-
-  // 3. 错题回顾（排除已在到期复习中的）
+  // 2. 错题回顾（排除已在到期复习中的）
   const mistakeWord = allWords
     .slice()
     .sort((a, b) => ((b.mistakes || []).length - (a.mistakes || []).length))
@@ -153,7 +134,7 @@ function buildTasks() {
     })
   }
 
-  // 4. 补充新词（未开始复习的，即 reviewLevel 为 0 或不存在）
+  // 3. 补充新词（未开始复习的，即 reviewLevel 为 0 或不存在）
   const newWords = allWords
     .filter(word => !usedIds.has(word.id))
     .filter(word => !word.reviewLevel || word.reviewLevel === 0)
@@ -163,7 +144,7 @@ function buildTasks() {
     tasks.push(buildWordTask(word, tasks.length + index))
   })
 
-  // 5. 保底：随机已学词（reviewLevel > 0 但未到期）
+  // 4. 保底：随机已学词（reviewLevel > 0 但未到期）
   const remaining = allWords
     .filter(word => !usedIds.has(word.id))
     .filter(word => word.reviewLevel && word.reviewLevel > 0)
@@ -179,7 +160,21 @@ function buildTasks() {
 function getSession() {
   const date = todayKey()
   const existing = wx.getStorageSync(SESSION_KEY)
-  if (existing && existing.date === date) return existing
+  if (existing && existing.date === date) {
+    const tasks = (existing.tasks || []).filter(task => task && task.type !== 'segment-shadow')
+    if (tasks.length !== (existing.tasks || []).length) {
+      const taskIds = new Set(tasks.map(task => task.id))
+      const normalized = {
+        ...existing,
+        tasks,
+        completedTaskIds: (existing.completedTaskIds || []).filter(id => taskIds.has(id)),
+        updatedAt: Date.now()
+      }
+      wx.setStorageSync(SESSION_KEY, normalized)
+      return normalized
+    }
+    return existing
+  }
 
   const session = {
     date,
@@ -256,13 +251,12 @@ Page({
 
   onShow() {
     studyDuration.startSession('daily-session')
-    // 从子页面返回时：如果任务已被完成（loadedTaskId 不在未完成列表），刷新
-    // 否则保持当前作答状态
+    // 从子页面返回时：如果任务已被完成（loadedTaskId 不在未完成列表），刷新；
+    // 否则保持当前作答状态。
     const session = getSession()
     const completed = new Set(session.completedTaskIds || [])
-    if (this.data.loadedTaskId && !completed.has(this.data.loadedTaskId)) {
-      if (this.completeShadowTaskIfReady(session)) return
-      // 当前任务仍为未完成，不重置
+    const loadedTaskStillExists = (session.tasks || []).some(task => task.id === this.data.loadedTaskId)
+    if (this.data.loadedTaskId && loadedTaskStillExists && !completed.has(this.data.loadedTaskId)) {
       return
     }
     this.loadSession()
@@ -301,38 +295,6 @@ Page({
 
   onAnswerInput(e) {
     this.setData({ answer: e.detail.value || '' })
-  },
-
-  getTaskSegment(task) {
-    if (!task || task.type !== 'segment-shadow') return null
-    const resource = resourceStorage.getResourceById(task.targetResourceId)
-    if (!resource) return null
-    return (resource.segments || []).find(segment => segment.index === task.targetSegmentIndex) || null
-  },
-
-  completeShadowTaskIfReady(session) {
-    const task = (session.tasks || []).find(item => item.id === this.data.loadedTaskId)
-    const segment = this.getTaskSegment(task)
-    if (!task || !segment) return false
-
-    const shadowCount = Number.isFinite(segment.shadowCount)
-      ? segment.shadowCount
-      : (segment.shadowRecords || []).length
-    const completedByNewRecord = shadowCount > (task.initialShadowCount || 0)
-    const completedByTimestamp = (segment.lastShadowedAt || 0) > (task.createdAt || session.createdAt || 0)
-    if (!completedByNewRecord && !completedByTimestamp) return false
-
-    completeTask(task.id, true)
-    this.loadSession()
-    return true
-  },
-
-  onOpenShadowTask() {
-    const task = this.data.currentTask
-    if (!task || task.type !== 'segment-shadow') return
-    wx.navigateTo({
-      url: `/pages/resource-detail/resource-detail?id=${task.targetResourceId}&shadow=${task.targetSegmentIndex}`
-    })
   },
 
   async onPlayWordAudio() {

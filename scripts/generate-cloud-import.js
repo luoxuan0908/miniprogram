@@ -17,6 +17,21 @@ const path = require('path')
 const OUTPUT_DIR = path.resolve(__dirname, 'output')
 const IMPORT_DIR = path.resolve(__dirname, 'output/cloud-import')
 
+function toJsonLines(records) {
+  return records.map(record => JSON.stringify(record)).join('\n') + '\n'
+}
+
+function writeJsonLines(filename, records) {
+  fs.writeFileSync(path.join(IMPORT_DIR, filename), toJsonLines(records), 'utf-8')
+}
+
+function withStableId(record, fallbackId) {
+  return {
+    _id: record._id || record.id || fallbackId,
+    ...record
+  }
+}
+
 function main() {
   // 读取解析好的数据
   const courses = JSON.parse(fs.readFileSync(path.join(OUTPUT_DIR, 'courses.json'), 'utf-8'))
@@ -26,10 +41,12 @@ function main() {
     fs.mkdirSync(IMPORT_DIR, { recursive: true })
   }
 
-  // 1. courses 集合导入文件（每行一个JSON对象，云数据库导入格式）
-  const coursesImport = courses.map(c => JSON.stringify(c)).join('\n')
-  fs.writeFileSync(path.join(IMPORT_DIR, 'courses.jsonl'), coursesImport, 'utf-8')
-  console.log(`courses.jsonl 已生成 (${courses.length} 条)`)
+  // 1. courses 集合导入文件：内容是 JSON Lines。
+  // 微信云开发控制台更稳定识别 .json 后缀，因此 courses_import.json 是首选。
+  const consoleCourses = courses.map((course, index) => withStableId(course, `course_${index + 1}`))
+  writeJsonLines('courses_import.json', consoleCourses)
+  writeJsonLines('courses.jsonl', consoleCourses)
+  console.log(`courses_import.json 已生成 (${courses.length} 条, JSON Lines)`)
 
   // 2. course_items 集合导入文件
   // 云数据库单次导入限制，按500条一批拆分
@@ -38,10 +55,11 @@ function main() {
 
   for (let i = 0; i < batchCount; i++) {
     const batch = items.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE)
-    const batchData = batch.map(item => JSON.stringify(item)).join('\n')
-    const filename = `course_items_${String(i + 1).padStart(3, '0')}.jsonl`
-    fs.writeFileSync(path.join(IMPORT_DIR, filename), batchData, 'utf-8')
-    console.log(`${filename} 已生成 (${batch.length} 条)`)
+    const index = String(i + 1).padStart(3, '0')
+    const consoleBatch = batch.map(item => withStableId(item, `${item.courseId}_${item.id}`))
+    writeJsonLines(`course_items_${index}.json`, consoleBatch)
+    writeJsonLines(`course_items_${index}.jsonl`, consoleBatch)
+    console.log(`course_items_${index}.json 已生成 (${batch.length} 条, JSON Lines)`)
   }
 
   // 3. 生成集合权限配置说明
@@ -71,9 +89,9 @@ function main() {
   console.log('2. 配置集合权限（参考 security-rules.json）:')
   console.log('   - courses / course_items: 所有用户可读，仅创建者可读写')
   console.log('   - userCourseProgress: 仅创建者可读写')
-  console.log('3. 在云开发控制台 → 数据库 → 导入，选择对应的 .jsonl 文件')
+  console.log('3. 在云开发控制台 → 数据库 → 导入，选择 *_import.json / course_items_*.json')
   console.log(`4. course_items 共 ${batchCount} 个批次，需逐个导入`)
-  console.log('5. 导入格式选择: JSONL (每行一个JSON)')
+  console.log('5. 导入格式选择: JSON / JSON Lines（一行一个 JSON 对象）')
   console.log(`\n总数据量: courses=${courses.length}条, course_items=${items.length}条`)
 }
 

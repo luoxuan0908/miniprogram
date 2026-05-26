@@ -97,6 +97,16 @@
   margin-top: 22rpx;
 }
 
+.study-empty {
+  margin-top: 20rpx;
+  padding: 18rpx;
+  border-radius: 9rpx;
+  background: #fff8e8;
+  color: #8a5b00;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
 .study-label {
   color: #4b5563;
   font-size: 24rpx;

@@ -4,22 +4,22 @@
  * 不使用云函数，直接通过微信云开发 HTTP API 上传本地文件
  * 
  * 使用前需配置:
- *   APPID - 小程序 AppID
- *   APPSECRET - 小程序 AppSecret
+ *   WECHAT_APPSECRET - 小程序 AppSecret
+ *   WECHAT_APPID 可选，默认读取 miniprogram/utils/constants.js 中的 APP_ID
  * 
- * 用法: node scripts/upload-audio-local.js [--start 1] [--end 1355] [--concurrency 3]
+ * 用法:
+ *   WECHAT_APPSECRET="..." node scripts/upload-audio-local.js --start 1 --end 10
+ *   node scripts/upload-audio-local.js --check-only --audio-dir "/path/to/audio"
  */
 
 const https = require('https')
 const http = require('http')
 const fs = require('fs')
 const path = require('path')
+const { APP_ID, CLOUD_ENV_ID } = require('../miniprogram/utils/constants')
 
 // ====== 配置 ======
-const APPID = ''       // 填入你的小程序 AppID
-const APPSECRET = ''   // 填入你的小程序 AppSecret
-const ENV_ID = 'cloud1-d9g82wxrn9260a87b'
-const AUDIO_DIR = '/Users/luoxuan/技术/Most_Common_Amrican_Idioms/audio'
+const DEFAULT_AUDIO_DIR = '/Users/luoxuan/技术/Most_Common_Amrican_Idioms/audio'
 const CLOUD_PATH_PREFIX = 'idioms-audio/'
 const TOTAL_IDIOMS = 1355
 const DB_COLLECTION = 'course_items'
@@ -29,11 +29,21 @@ const args = process.argv.slice(2)
 let startIndex = 1
 let endIndex = TOTAL_IDIOMS
 let concurrency = 3
+let audioDir = process.env.IDIOM_AUDIO_DIR || DEFAULT_AUDIO_DIR
+let appId = process.env.WECHAT_APPID || process.env.WX_APPID || APP_ID
+let appSecret = process.env.WECHAT_APPSECRET || process.env.WX_APPSECRET || ''
+let checkOnly = false
+let updateDb = true
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--start' && args[i + 1]) startIndex = parseInt(args[i + 1])
   if (args[i] === '--end' && args[i + 1]) endIndex = parseInt(args[i + 1])
   if (args[i] === '--concurrency' && args[i + 1]) concurrency = parseInt(args[i + 1])
+  if (args[i] === '--audio-dir' && args[i + 1]) audioDir = args[i + 1]
+  if (args[i] === '--appid' && args[i + 1]) appId = args[i + 1]
+  if (args[i] === '--appsecret' && args[i + 1]) appSecret = args[i + 1]
+  if (args[i] === '--check-only') checkOnly = true
+  if (args[i] === '--no-db') updateDb = false
 }
 
 // ====== 进度记录 ======
@@ -161,16 +171,18 @@ let tokenExpireTime = 0
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpireTime) return accessToken
 
-  if (!APPID || !APPSECRET) {
-    console.error('❌ 请先配置 APPID 和 APPSECRET')
-    console.error('   在脚本顶部填入你的小程序 AppID 和 AppSecret')
+  const placeholderSecrets = new Set(['你的小程序AppSecret', '你的密钥', 'APPSECRET', ''])
+  if (!appId || !appSecret || placeholderSecrets.has(appSecret)) {
+    console.error('❌ 请先配置 WECHAT_APPSECRET')
+    console.error('   你刚才命令里的 “你的小程序AppSecret” 是占位文字，需要替换成真实 AppSecret。')
+    console.error('   示例: WECHAT_APPSECRET=\"真实AppSecret\" node scripts/upload-audio-local.js --start 1 --end 10')
     console.error('   获取地址: https://mp.weixin.qq.com/ → 开发管理 → 开发设置')
     process.exit(1)
   }
 
   console.log('🔑 获取 access_token...')
   const res = await httpsGet(
-    `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${APPID}&secret=${APPSECRET}`
+    `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${appId}&secret=${appSecret}`
   )
 
   if (res.access_token) {
@@ -179,14 +191,58 @@ async function getAccessToken() {
     console.log('✅ access_token 获取成功')
     return accessToken
   } else {
-    throw new Error(`获取 access_token 失败: ${JSON.stringify(res)}`)
+    const secretHint = res.errcode === 40125
+      ? 'AppSecret 无效：请确认使用的是当前 AppID 对应的小程序 AppSecret，不是 AppID、原始 ID、AppKey，也不是占位文字。'
+      : '获取 access_token 失败'
+    throw new Error(`${secretHint}: ${JSON.stringify(res)}`)
   }
 }
 
-async function uploadOneFile(index, sub) {
-  const numStr = String(index).padStart(3, '0')
-  const fileName = `${numStr}.${sub}.mp3`
-  const localPath = path.join(AUDIO_DIR, fileName)
+function toItemId(index) {
+  return `idiom-${String(index).padStart(4, '0')}`
+}
+
+function toAudioKey(index, sub) {
+  return `${String(index).padStart(3, '0')}.${sub}`
+}
+
+function isCloudFileID(value) {
+  return typeof value === 'string' && value.startsWith('cloud://')
+}
+
+function normalizeAudioPath(index, sub, audioPath) {
+  const value = String(audioPath || '').trim()
+  if (value && !isCloudFileID(value)) return value.replace(/^\/+/, '')
+  return `audio/${toAudioKey(index, sub)}.mp3`
+}
+
+function fileNameFromAudioPath(index, sub, audioPath) {
+  const fallback = `${toAudioKey(index, sub)}.mp3`
+  return normalizeAudioPath(index, sub, audioPath).split('?')[0].split('/').pop() || fallback
+}
+
+async function queryCourseItem(index) {
+  const itemId = toItemId(index)
+  const token = await getAccessToken()
+
+  const queryRes = await httpsPost(
+    `https://api.weixin.qq.com/tcb/databasequery?access_token=${token}`,
+    {
+      env: CLOUD_ENV_ID,
+      query: `db.collection("${DB_COLLECTION}").where({id: "${itemId}"}).limit(1).get()`
+    }
+  )
+
+  if (queryRes.errcode !== 0 || !queryRes.data || queryRes.data.length === 0) {
+    return null
+  }
+
+  return JSON.parse(queryRes.data[0])
+}
+
+async function uploadOneFile(index, sub, audioPath) {
+  const fileName = fileNameFromAudioPath(index, sub, audioPath)
+  const localPath = path.join(audioDir, fileName)
   const cloudPath = CLOUD_PATH_PREFIX + fileName
 
   // 检查本地文件
@@ -195,7 +251,7 @@ async function uploadOneFile(index, sub) {
   }
 
   // 检查是否已上传
-  const progressKey = `${index}.${sub}`
+  const progressKey = fileName
   if (progress[progressKey]) {
     return { index, sub, fileID: progress[progressKey], skipped: true }
   }
@@ -206,7 +262,7 @@ async function uploadOneFile(index, sub) {
     // 步骤1: 获取上传链接
     const uploadInfo = await httpsPost(
       `https://api.weixin.qq.com/tcb/uploadfile?access_token=${token}`,
-      { env: ENV_ID, path: cloudPath }
+      { env: CLOUD_ENV_ID, path: cloudPath }
     )
 
     if (uploadInfo.errcode !== 0) {
@@ -226,81 +282,88 @@ async function uploadOneFile(index, sub) {
 
     // 记录进度
     progress[progressKey] = fileID
-    if (sub === 3) saveProgress() // 每条习语3个文件都上传后保存
-
     return { index, sub, fileID }
   } catch (err) {
     return { index, sub, fileID: '', error: err.message }
   }
 }
 
-async function updateDatabase(index, audioMap) {
-  const itemId = `idiom-${String(index).padStart(4, '0')}`
+async function updateDatabase(doc, audioFieldUpdates) {
   const token = await getAccessToken()
-
-  // 先查询记录
-  const queryRes = await httpsPost(
-    `https://api.weixin.qq.com/tcb/databasequery?access_token=${token}`,
-    {
-      env: ENV_ID,
-      query: `db.collection("${DB_COLLECTION}").where({id: "${itemId}"}).limit(1).get()`
-    }
-  )
-
-  if (queryRes.errcode !== 0 || !queryRes.data || queryRes.data.length === 0) {
-    console.warn(`  ⚠️  条目 ${itemId} 未找到`)
-    return false
-  }
-
-  const doc = JSON.parse(queryRes.data[0])
-  const docId = doc._id
-  const examples = doc.examples || []
-
-  for (let i = 0; i < examples.length; i++) {
-    const subIndex = i + 1
-    const key = `${String(index).padStart(3, '0')}.${subIndex}`
-    if (audioMap[key]) {
-      examples[i].audio = audioMap[key]
-    }
-  }
+  const updateDataJson = JSON.stringify(audioFieldUpdates)
 
   // 更新记录
   const updateRes = await httpsPost(
     `https://api.weixin.qq.com/tcb/databaseupdate?access_token=${token}`,
     {
-      env: ENV_ID,
-      query: `db.collection("${DB_COLLECTION}").doc("${docId}").update({data:{examples:${JSON.stringify(examples)}}})`
+      env: CLOUD_ENV_ID,
+      query: `db.collection("${DB_COLLECTION}").doc("${doc._id}").update({data:${updateDataJson}})`
     }
   )
 
-  return updateRes.errcode === 0
+  if (updateRes.errcode !== 0) {
+    console.error(`  ❌ DB更新返回: ${JSON.stringify(updateRes)}`)
+    return false
+  }
+
+  return true
 }
 
 async function processOneIdiom(index) {
-  const audioMap = {}
-  const results = []
+  const doc = await queryCourseItem(index)
+  if (!doc) {
+    console.warn(`  ⚠️  条目 ${toItemId(index)} 未找到`)
+    return { results: [], dbOk: false, notFound: true }
+  }
 
-  for (let sub = 1; sub <= 3; sub++) {
-    const result = await uploadOneFile(index, sub)
+  const examples = Array.isArray(doc.examples) ? doc.examples : []
+  const results = []
+  const audioFieldUpdates = {}
+
+  for (let i = 0; i < examples.length; i++) {
+    const sub = i + 1
+    if (isCloudFileID(examples[i].audio)) {
+      results.push({ index, sub, fileID: examples[i].audio, skipped: true })
+      continue
+    }
+
+    const result = await uploadOneFile(index, sub, examples[i].audio)
     results.push(result)
     if (result.fileID) {
-      const numStr = String(index).padStart(3, '0')
-      audioMap[`${numStr}.${sub}`] = result.fileID
+      audioFieldUpdates[`examples.${i}.audio`] = result.fileID
     }
   }
 
   // 更新数据库
   let dbOk = false
-  const hasFiles = Object.values(audioMap).some(v => v)
-  if (hasFiles) {
+  const hasUpdates = Object.keys(audioFieldUpdates).length > 0
+  if (updateDb && hasUpdates) {
     try {
-      dbOk = await updateDatabase(index, audioMap)
+      dbOk = await updateDatabase(doc, audioFieldUpdates)
     } catch (err) {
       console.error(`  ❌ DB更新失败 #${index}: ${err.message}`)
     }
+  } else if (!updateDb || !hasUpdates) {
+    dbOk = true
   }
 
   return { results, dbOk }
+}
+
+function checkLocalAudioFiles() {
+  const missing = []
+  for (let i = 1; i <= TOTAL_IDIOMS; i++) {
+    for (let sub = 1; sub <= 3; sub++) {
+      const fileName = `${String(i).padStart(3, '0')}.${sub}.mp3`
+      if (!fs.existsSync(path.join(audioDir, fileName))) missing.push(fileName)
+    }
+  }
+
+  console.log(`本地音频检查: ${TOTAL_IDIOMS * 3 - missing.length}/${TOTAL_IDIOMS * 3} 个标准编号文件存在`)
+  if (missing.length > 0) {
+    console.log(`缺失 ${missing.length} 个: ${missing.slice(0, 20).join(', ')}${missing.length > 20 ? ' ...' : ''}`)
+  }
+  return missing.length === 0
 }
 
 // ====== 主流程 ======
@@ -309,28 +372,19 @@ async function main() {
   console.log('  习语音频本地上传工具')
   console.log('========================================')
   console.log(`范围: #${startIndex} ~ #${endIndex}`)
-  console.log(`音频目录: ${AUDIO_DIR}`)
+  console.log(`音频目录: ${audioDir}`)
   console.log(`云存储路径: ${CLOUD_PATH_PREFIX}`)
+  console.log(`云环境: ${CLOUD_ENV_ID}`)
   console.log('')
 
-  if (!APPID || !APPSECRET) {
-    console.error('❌ 请先配置 APPID 和 APPSECRET')
-    console.error('')
-    console.error('打开脚本文件，在顶部填入:')
-    console.error('  APPID = "你的小程序AppID"')
-    console.error('  APPSECRET = "你的小程序AppSecret"')
-    console.error('')
-    console.error('获取方式:')
-    console.error('  1. 登录 https://mp.weixin.qq.com/')
-    console.error('  2. 开发管理 → 开发设置')
-    console.error('  3. AppID(小程序ID) 和 AppSecret(小程序密钥)')
+  // 检查音频目录
+  if (!fs.existsSync(audioDir)) {
+    console.error(`❌ 音频目录不存在: ${audioDir}`)
     process.exit(1)
   }
-
-  // 检查音频目录
-  if (!fs.existsSync(AUDIO_DIR)) {
-    console.error(`❌ 音频目录不存在: ${AUDIO_DIR}`)
-    process.exit(1)
+  const localFilesOk = checkLocalAudioFiles()
+  if (checkOnly) {
+    process.exit(localFilesOk ? 0 : 1)
   }
 
   // 加载进度
@@ -368,7 +422,9 @@ async function main() {
       const total = endIndex - startIndex + 1
       const pct = ((done / total) * 100).toFixed(1)
       
-      if (i % 20 === 0 || failed > 0 || startIndex === endIndex) {
+      saveProgress()
+
+      if (i % 20 === 0 || failed > 0 || startIndex === endIndex || dbOk === false) {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(0)
         console.log(`[${done}/${total} ${pct}%] #${numStr}: 成功${success} 跳过${skipped} 失败${failed} DB${dbOk ? '✓' : '✗'} (${elapsed}s)`)
       }

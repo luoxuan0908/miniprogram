@@ -11,16 +11,21 @@ Page({
     this.loadCourses()
   },
 
-  loadCourses() {
-    const courses = courseStorage.getAllCourses()
+  async loadCourses() {
+    this.setData({ loading: true })
+
+    const courses = await courseStorage.getAllCoursesAsync()
     const statsMap = {}
-    courses.forEach(c => {
+    const viewCourses = courses.map(c => {
+      const typeConfig = courseStorage.getTypeConfig(c.type)
       statsMap[c.id] = courseStorage.getCourseStats(c.id)
-      // 动态附加类型配置，避免硬编码
-      c._typeLabel = courseStorage.getTypeConfig(c.type).label
-      c._itemUnit = courseStorage.getTypeConfig(c.type).itemUnit
+      return {
+        ...c,
+        _typeLabel: typeConfig.label,
+        _itemUnit: typeConfig.itemUnit
+      }
     })
-    this.setData({ courses, statsMap, loading: false })
+    this.setData({ courses: viewCourses, statsMap, loading: false })
   },
 
   onCourseTap(e) {

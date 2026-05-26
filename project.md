@@ -7,8 +7,8 @@
 1. **词汇学习**：手动录入生词 → DeepSeek API 自动生成结构化内容 → Qwen3-TTS-Flash 生成音频 → 多模式练习（识别/听写/回忆/语境） → 艾宾浩斯复习
 2. **文档学习**：导入 URL / 粘贴文本 / 本地文件（HTML/TXT） → 自动分段 + 图片提取 → 逐段按需翻译(DeepSeek) + 按需生成音频(Qwen3-TTS-Flash) → 逐段播放 + 精读任务生成
 
-- **AppID**: `wx8e5a63421b0d4727`
-- **云环境**: `cloud1-d9g82wxrn9260a87b`
+- **AppID**: `wx57a74d66c06421ad`
+- **云环境**: `cloud1-d1gg8fxt120042802`
 - **Git**: 已初始化，分支 `main`，初始提交 `adea6ba`
 
 ---
@@ -647,8 +647,8 @@ MiniProgram/
 
 | 配置项 | 位置 | 说明 |
 |--------|------|------|
-| `appid` | `project.config.json` | `wx8e5a63421b0d4727` |
-| `env-id` | `app.js` → `wx.cloud.init()` | `cloud1-d9g82wxrn9260a87b` |
+| `appid` | `project.config.json` / `constants.js` | `wx57a74d66c06421ad` |
+| `env-id` | `constants.js` → `wx.cloud.init()` | `cloud1-d1gg8fxt120042802` |
 | `DEEPSEEK_API_KEY` | 云函数环境变量 ×3 | generateContent / translateSegment / generateResourceStudyPack |
 | `DASHSCOPE_API_KEY` | 云函数环境变量 ×1 | tts |
 

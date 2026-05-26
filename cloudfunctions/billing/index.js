@@ -252,16 +252,66 @@ async function ensureAccount(openid) {
 async function getAccount(openid) {
   const account = await ensureAccount(openid)
   await ensureCollection(LEDGER)
-  const recentRes = await db.collection(LEDGER)
-    .where({ _openid: openid })
-    .orderBy('createdAt', 'desc')
-    .limit(5)
-    .get()
+  const recentRes = await getLedgerPage(openid, 5, 0)
+  const recentLedger = (recentRes.data || []).map(formatLedger)
+  const totalCalls = await countLedgerForUser(openid, {}, recentLedger.length)
+  const unpricedCalls = await countLedgerForUser(openid, { pendingPricing: true },
+    recentLedger.filter(item => item.pendingPricing || item.pricingStatus === 'unpriced').length)
   return {
     success: true,
     account: formatAccount(account),
-    recentLedger: (recentRes.data || []).map(formatLedger)
+    usageSummary: {
+      totalCalls,
+      recentCalls: recentLedger.length,
+      unpricedCalls
+    },
+    recentLedger
   }
+}
+
+async function getLedgerPage(openid, limit, offset) {
+  const [primary, owner] = await Promise.all([
+    db.collection(LEDGER)
+      .where({ _openid: openid })
+      .orderBy('createdAt', 'desc')
+      .skip(offset)
+      .limit(limit)
+      .get(),
+    db.collection(LEDGER)
+      .where({ ownerId: openid })
+      .orderBy('createdAt', 'desc')
+      .skip(offset)
+      .limit(limit)
+      .get()
+  ])
+
+  const byId = new Map()
+  ;[...(primary.data || []), ...(owner.data || [])].forEach(record => {
+    const key = record._id || record.ledgerKey || record.requestId
+    if (key) byId.set(key, record)
+  })
+
+  return {
+    data: Array.from(byId.values())
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, limit)
+  }
+}
+
+async function countLedgerWhere(where, fallback = 0) {
+  try {
+    const res = await db.collection(LEDGER).where(where).count()
+    return Number(res.total || 0)
+  } catch (err) {
+    console.warn('count ledger failed:', err && (err.errMsg || err.message))
+    return fallback
+  }
+}
+
+async function countLedgerForUser(openid, extraWhere = {}, fallback = 0) {
+  const primary = await countLedgerWhere({ _openid: openid, ...extraWhere }, 0)
+  const owner = await countLedgerWhere({ ownerId: openid, ...extraWhere }, 0)
+  return Math.max(primary, owner, fallback)
 }
 
 function formatMoneyMicros(value) {
@@ -319,16 +369,13 @@ async function getLedger(openid, event) {
   await ensureCollection(LEDGER)
   const limit = Math.min(50, Math.max(1, Number(event.limit) || 20))
   const offset = Math.max(0, Number(event.offset) || 0)
-  const res = await db.collection(LEDGER)
-    .where({ _openid: openid })
-    .orderBy('createdAt', 'desc')
-    .skip(offset)
-    .limit(limit)
-    .get()
+  const res = await getLedgerPage(openid, limit, offset)
+  const total = await countLedgerForUser(openid, {}, offset + ((res.data || []).length))
 
   return {
     success: true,
     ledger: (res.data || []).map(formatLedger),
+    total,
     offset,
     limit
   }

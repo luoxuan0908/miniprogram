@@ -5,8 +5,9 @@
       <view class="balance-value">¥{{account.balanceLabel}}</view>
     </view>
     <view class="balance-side">
-      <view class="side-label">累计扣费</view>
-      <view class="side-value">¥{{account.chargedLabel}}</view>
+      <view class="side-label">AI 调用</view>
+      <view class="side-value">{{usageSummary.totalCallsLabel}} 次</view>
+      <view class="side-sub">累计扣费 ¥{{account.chargedLabel}}</view>
     </view>
   </view>
 

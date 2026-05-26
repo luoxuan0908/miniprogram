@@ -68,26 +68,56 @@ function normalizeArray(value) {
   return Array.isArray(value) ? value : []
 }
 
+function pickValue(source, names, fallback) {
+  if (typeof source === 'string') {
+    const stringFields = ['word', 'keyword', 'term', 'phrase', 'text', 'sentence', 'original', 'summary', 'mainIdea', 'gist']
+    return names.some(name => stringFields.indexOf(name) !== -1) ? source : fallback
+  }
+  const data = source && typeof source === 'object' ? source : {}
+  for (const name of names) {
+    if (data[name] !== undefined && data[name] !== null) return data[name]
+  }
+  return fallback
+}
+
+function pickArray(source, names) {
+  return normalizeArray(pickValue(source, names, []))
+}
+
+function hasStudyPackContent(studyPack) {
+  return !!(
+    studyPack.keyWords.length ||
+    studyPack.hardSentences.length ||
+    studyPack.dictationSentences.length ||
+    studyPack.segmentSummaries.length
+  )
+}
+
 function normalizeStudyPack(parsed) {
-  return {
-    keyWords: normalizeArray(parsed.keyWords).slice(0, 10).map(item => ({
-      word: item.word || '',
-      chineseHint: item.chineseHint || item.hint || '',
-      reason: item.reason || ''
+  const source = pickValue(parsed, ['studyPack', 'data', 'result'], parsed)
+  const pack = {
+    keyWords: pickArray(source, ['keyWords', 'keywords', 'key_words', 'vocabulary', 'words']).slice(0, 10).map(item => ({
+      word: pickValue(item, ['word', 'keyword', 'term', 'phrase', 'text'], ''),
+      chineseHint: pickValue(item, ['chineseHint', 'hint', 'chinese', 'meaning', 'translation'], ''),
+      reason: pickValue(item, ['reason', 'note', 'explanation'], '')
     })).filter(item => item.word),
-    hardSentences: normalizeArray(parsed.hardSentences).slice(0, 3).map(item => ({
-      sentence: item.sentence || '',
-      explanation: item.explanation || ''
+    hardSentences: pickArray(source, ['hardSentences', 'difficultSentences', 'hard_sentences', 'sentenceAnalysis']).slice(0, 3).map(item => ({
+      sentence: pickValue(item, ['sentence', 'text', 'original'], ''),
+      explanation: pickValue(item, ['explanation', 'analysis', 'note', 'translation'], '')
     })).filter(item => item.sentence),
-    dictationSentences: normalizeArray(parsed.dictationSentences).slice(0, 3).map(item => ({
-      sentence: item.sentence || '',
-      hint: item.hint || ''
+    dictationSentences: pickArray(source, ['dictationSentences', 'dictation', 'dictation_sentences', 'listeningSentences']).slice(0, 3).map(item => ({
+      sentence: pickValue(item, ['sentence', 'text', 'original'], ''),
+      hint: pickValue(item, ['hint', 'chineseHint', 'translation', 'note'], '')
     })).filter(item => item.sentence),
-    segmentSummaries: normalizeArray(parsed.segmentSummaries).map(item => ({
-      index: Number(item.index) || 0,
-      summary: item.summary || ''
+    segmentSummaries: pickArray(source, ['segmentSummaries', 'summaries', 'segment_summaries', 'paragraphSummaries']).map((item, index) => ({
+      index: Number(pickValue(item, ['index', 'segmentIndex', 'paragraphIndex', 'id'], 0)) || index + 1,
+      summary: pickValue(item, ['summary', 'text', 'mainIdea', 'gist'], '')
     })).filter(item => item.index && item.summary),
     generatedAt: Date.now()
+  }
+  return {
+    ...pack,
+    hasContent: hasStudyPackContent(pack)
   }
 }
 
@@ -121,13 +151,24 @@ function extractUsageMeters(usage, fallbackMeters) {
   return Object.keys(meters).length ? meters : fallbackMeters
 }
 
+function getCurrentOpenid() {
+  try {
+    const wxContext = cloud.getWXContext()
+    return (wxContext && wxContext.OPENID) || ''
+  } catch (err) {
+    return ''
+  }
+}
+
 async function callBilling(action, payload) {
   try {
+    const openid = getCurrentOpenid()
     const res = await cloud.callFunction({
       name: 'billing',
       data: {
         action,
-        ...payload
+        ...payload,
+        ...(openid ? { openid } : {})
       }
     })
     return res.result || { success: false, error: '计费服务无返回' }
@@ -212,15 +253,6 @@ exports.main = async (event = {}) => {
 
     const data = JSON.parse(response.data)
     const content = data.choices && data.choices[0] && data.choices[0].message.content
-    let parsed
-    try {
-      parsed = JSON.parse(content)
-    } catch {
-      const jsonMatch = String(content || '').match(/```(?:json)?\s*([\s\S]*?)```/)
-      if (!jsonMatch) return { success: false, error: 'DeepSeek 返回格式异常' }
-      parsed = JSON.parse(jsonMatch[1])
-    }
-
     const billing = await callBilling('settle', {
       requestId,
       modelKey: MODEL_KEY,
@@ -235,7 +267,21 @@ exports.main = async (event = {}) => {
       }
     })
 
-    return { success: true, studyPack: normalizeStudyPack(parsed), billing }
+    let parsed
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      const jsonMatch = String(content || '').match(/```(?:json)?\s*([\s\S]*?)```/)
+      if (!jsonMatch) return { success: false, error: 'DeepSeek 返回格式异常' }
+      parsed = JSON.parse(jsonMatch[1])
+    }
+
+    const studyPack = normalizeStudyPack(parsed)
+    if (!studyPack.hasContent) {
+      return { success: false, error: 'DeepSeek 返回精读内容为空', billing }
+    }
+
+    return { success: true, studyPack, billing }
   } catch (err) {
     console.error('generateResourceStudyPack error:', err)
     return { success: false, error: err.message || '精读任务生成失败' }
